@@ -1,0 +1,13 @@
+.git
+.gitignore
+**/.env
+**/venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+**/dist
+**/build
+*.db
+*.log
+temp_downloads
+downloads

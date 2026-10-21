@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-black text-white;
+    background-color: #000000;
+    font-family: 'Jost', sans-serif;
+  }
+
+  .font-honk {
+    font-family: 'Honk', cursive, sans-serif;
+  }
+
+  .font-jost {
+    font-family: 'Jost', sans-serif;
+  }
+
+  .font-songs {
+    font-family: 'Google Sans Flex', 'Google Sans', sans-serif;
+  }
+}
+
+/* Custom Dark Pink Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #9d174d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #db2777;
+}
+
+/* ASCII Art Background Component */
+.ascii-bg-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+}
+
+.ascii-bg-container ascii-art {
+  display: block !important;
+  user-select: none;
+}
+
+.ascii-bg-container pre {
+  margin: 0;
+  font-family: monospace !important;
+}
+
+/* Flat 2D Button Styles with Simple Transitions */
+.btn-shady {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background-color: #db2777;
+  color: #ffffff;
+  font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.625rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-shady:hover:not(:disabled) {
+  background-color: #be185d;
+}
+
+.btn-shady:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-shady:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Compact Flat 2D Button (for tables, list rows, e.g. GET button) */
+.btn-shady-sm {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background-color: #db2777;
+  color: #ffffff;
+  font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-shady-sm:hover:not(:disabled) {
+  background-color: #be185d;
+}
+
+.btn-shady-sm:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.btn-shady-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary Flat 2D Button */
+.btn-shady-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  background-color: #27272a;
+  color: #ffffff;
+  font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.625rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-shady-secondary:hover:not(:disabled) {
+  background-color: #3f3f46;
+}
+
+.btn-shady-secondary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn-shady-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-shady-secondary-sm {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background-color: #27272a;
+  color: #ffffff;
+  font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn-shady-secondary-sm:hover:not(:disabled) {
+  background-color: #3f3f46;
+}
+
+.btn-shady-secondary-sm:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.btn-shady-secondary-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

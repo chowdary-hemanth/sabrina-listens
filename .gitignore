@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+**/node_modules/
+venv/
+**/venv/
+
+# Python Cache
+__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+
+# Local databases & downloads
+*.db
+*.sqlite3
+sabrina_listens.db
+backend/sabrina_listens.db
+temp_downloads/
+downloads/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+
+# Editors
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+# ==============================================================================
+# Render.com Blueprint Specification for SABRINA LISTENS
+# ==============================================================================
+services:
+  - type: web
+    name: sabrina-listens
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: CLOUD_MODE
+        value: "true"
+      - key: OUTPUT_DIRECTORY
+        value: /tmp/downloads
+      - key: TEMP_DIRECTORY
+        value: /tmp/temp_downloads
+      - key: LOG_LEVEL
+        value: INFO
