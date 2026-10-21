@@ -2,7 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from app.models.database import get_db, JobRecord, HistoryRecord
 
@@ -107,3 +107,36 @@ async def open_containing_folder(job_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Could not open folder: {e}")
 
     return {"message": "Folder opened", "path": file_path}
+
+@router.get("/download-desktop-app")
+async def download_desktop_app():
+    """
+    Downloads the pre-compiled Windows Desktop App (SabrinaListens.exe).
+    Serves the binary directly if bundled on disk, or redirects to the latest GitHub release.
+    """
+    base_backend = Path(__file__).resolve().parents[3]
+    base_project = Path(__file__).resolve().parents[4] if len(Path(__file__).resolve().parents) > 4 else base_backend
+
+    candidates = [
+        base_backend / "desktop_dist" / "SabrinaListens.exe",
+        base_project / "dist" / "SabrinaListens.exe",
+        Path("desktop_dist/SabrinaListens.exe"),
+        Path("backend/desktop_dist/SabrinaListens.exe"),
+        Path("/app/backend/desktop_dist/SabrinaListens.exe"),
+        Path("/app/dist/SabrinaListens.exe"),
+    ]
+    for p in candidates:
+        if p.is_file():
+            return FileResponse(
+                path=str(p),
+                filename="SabrinaListens.exe",
+                media_type="application/vnd.microsoft.portable-executable",
+                content_disposition_type="attachment",
+            )
+
+    # Redirect to GitHub Releases download
+    return RedirectResponse(
+        url="https://github.com/chowdary-hemanth/sabrina-listens/releases/latest/download/SabrinaListens.exe",
+        status_code=307,
+    )
+

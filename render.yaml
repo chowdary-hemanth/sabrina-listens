@@ -19,3 +19,7 @@ services:
         value: /tmp/temp_downloads
       - key: LOG_LEVEL
         value: INFO
+      - key: YOUTUBE_COOKIES
+        sync: false
+      - key: YOUTUBE_PO_TOKEN
+        sync: false

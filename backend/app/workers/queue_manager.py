@@ -9,6 +9,7 @@ import yt_dlp
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.ytdlp_utils import get_default_ydl_opts
 from app.models.database import SessionLocal, JobRecord, HistoryRecord
 from app.schemas.types import JobStatus, TrackMetadata, DownloadJobStatus
 from app.services.audio_resolver import AudioResolver
@@ -308,8 +309,9 @@ class QueueManager:
                     if final_ext in ("webm", "opus", "ogg"):
                         final_ext = "opus"
 
-                # 4. State: TRANSCODING (bypassed in CLOUD_MODE for 320k fast direct extraction)
-                needs_transcode = not settings.CLOUD_MODE and (
+                # 4. State: TRANSCODING
+                # Transcode if target format differs from downloaded file extension or if converting to target quality
+                needs_transcode = (
                     job.quality_id != "original" or
                     downloaded_file.suffix.lower() != f".{final_ext.lower()}"
                 )
@@ -402,14 +404,12 @@ class QueueManager:
                 asyncio.run_coroutine_threadsafe(self.broadcast(job), loop)
 
         def _run_download():
-            ydl_opts = {
+            ydl_opts = get_default_ydl_opts({
                 'format': 'bestaudio/best',
                 'outtmpl': str(temp_file),
-                'quiet': True,
-                'no_warnings': True,
                 'progress_hooks': [progress_hook],
                 'overwrites': True,
-            }
+            })
 
             # If direct audio file URL
             if resolution.extractor == "direct":
@@ -434,9 +434,30 @@ class QueueManager:
                                     asyncio.run_coroutine_threadsafe(self.broadcast(job), loop)
                 return temp_file
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                url_to_download = resolution.raw_info.get('webpage_url') or resolution.stream_url
-                ydl.download([url_to_download])
+            url_to_download = resolution.raw_info.get('webpage_url') or resolution.stream_url
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url_to_download])
+            except Exception as e:
+                err_str = str(e).lower()
+                if "bot" in err_str or "sign in" in err_str:
+                    logger.warning(f"Bot detection challenge encountered during download ({e}). Retrying with mobile player client...")
+                    fallback_opts = get_default_ydl_opts({
+                        'format': 'bestaudio/best',
+                        'outtmpl': str(temp_file),
+                        'progress_hooks': [progress_hook],
+                        'overwrites': True,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['android', 'ios'],
+                                'player_skip': ['webpage', 'configs'],
+                            }
+                        },
+                    })
+                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                        ydl.download([url_to_download])
+                else:
+                    raise
 
             # In some cases yt-dlp appends extension to outtmpl
             if not temp_file.exists():

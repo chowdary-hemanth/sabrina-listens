@@ -6,6 +6,7 @@ import yt_dlp
 import httpx
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.ytdlp_utils import get_default_ydl_opts
 from app.schemas.types import (
     ResourceType,
     ProviderType,
@@ -311,12 +312,10 @@ class MetadataService:
         loop = asyncio.get_event_loop()
 
         def _fetch():
-            ydl_opts = {
-                'quiet': True,
+            ydl_opts = get_default_ydl_opts({
                 'skip_download': True,
                 'extract_flat': 'in_playlist',
-                'no_warnings': True,
-            }
+            })
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(parsed.cleaned_url, download=False)
                 if not info:

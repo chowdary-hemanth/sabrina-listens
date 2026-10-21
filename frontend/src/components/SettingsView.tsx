@@ -7,6 +7,8 @@ import {
   AlertCircle,
   Save,
   HelpCircle,
+  ShieldCheck,
+  Download,
 } from 'lucide-react';
 import { SettingsModel } from '../types';
 import { updateSettings } from '../services/api';
@@ -209,6 +211,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-full bg-black/60 border border-pink-600/30 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-pink-500 font-mono"
             />
           </div>
+        </div>
+
+        {/* YouTube Cloud Datacenter Protection */}
+        <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-white flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-pink-500" />
+              <span>YouTube Cloud Bot Bypass & Authentication</span>
+            </span>
+            <span className="text-xs text-pink-400 bg-pink-950/70 px-2.5 py-0.5 rounded-full border border-pink-600/40">
+              Active
+            </span>
+          </div>
+          <p className="text-xs text-white/70 leading-relaxed">
+            Sabrina Listens automatically routes YouTube extractions through Android and iOS mobile client APIs to bypass cloud bot verification challenges on datacenter IPs (e.g. Render.com). For strict cloud environments, you can also paste your browser cookies into the <code className="text-pink-300">YOUTUBE_COOKIES</code> environment variable in your Render dashboard.
+          </p>
+        </div>
+
+        {/* Standalone Desktop Executable Download */}
+        <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <span className="text-sm font-bold text-white block">
+              Prefer Desktop Offline Mode?
+            </span>
+            <p className="text-xs text-white/70">
+              Get full uncompressed FLAC audio, 192k/256k/320k choices, and local disk folders with zero cloud restrictions.
+            </p>
+          </div>
+          <a
+            href="/api/download-desktop-app"
+            download="SabrinaListens.exe"
+            className="btn-shady-secondary text-xs px-4 py-2 shrink-0 gap-2 border border-pink-600/40 hover:border-pink-500"
+          >
+            <Download className="w-3.5 h-3.5 text-pink-400" />
+            <span>Download .exe (60.5 MB)</span>
+          </a>
         </div>
 
         {/* Free of Cost Banner */}

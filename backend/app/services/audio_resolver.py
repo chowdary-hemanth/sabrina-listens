@@ -2,6 +2,7 @@ import asyncio
 from typing import Dict, Any, Optional
 import yt_dlp
 from app.core.logging import logger
+from app.core.ytdlp_utils import get_default_ydl_opts
 from app.schemas.types import TrackMetadata
 
 class AudioResolutionResult:
@@ -50,41 +51,60 @@ class AudioResolver:
             else:
                 query = f"ytsearch1:{track.artist} - {track.title}"
 
-            ydl_opts = {
+            ydl_opts = get_default_ydl_opts({
                 'format': 'bestaudio/best',
-                'quiet': True,
-                'no_warnings': True,
                 'extract_flat': False,
                 'noplaylist': True,
-            }
+            })
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                logger.info(f"Resolving audio stream for query: {query}")
-                info = ydl.extract_info(query, download=False)
+            info = None
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    logger.info(f"Resolving audio stream for query: {query}")
+                    info = ydl.extract_info(query, download=False)
+            except Exception as e:
+                err_str = str(e).lower()
+                if "bot" in err_str or "sign in" in err_str:
+                    logger.warning(f"Bot detection challenge encountered during audio resolution ({e}). Retrying with mobile player client...")
+                    fallback_opts = get_default_ydl_opts({
+                        'format': 'bestaudio/best',
+                        'extract_flat': False,
+                        'noplaylist': True,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['android', 'ios'],
+                                'player_skip': ['webpage', 'configs'],
+                            }
+                        },
+                    })
+                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                        info = ydl.extract_info(query, download=False)
+                else:
+                    raise
 
-                if not info:
-                    raise ValueError(f"No audio stream found for {track.artist} - {track.title}")
+            if not info:
+                raise ValueError(f"No audio stream found for {track.artist} - {track.title}")
 
-                # If it's a search result, take first entry
-                if 'entries' in info and info['entries']:
-                    info = info['entries'][0]
+            # If it's a search result, take first entry
+            if 'entries' in info and info['entries']:
+                info = info['entries'][0]
 
-                # Extract audio bitrate and format
-                abr = info.get('abr') or info.get('tbr') or 160
-                source_bitrate = int(round(abr))
-                acodec = info.get('acodec') or info.get('ext') or 'opus'
-                filesize = info.get('filesize') or info.get('filesize_approx')
+            # Extract audio bitrate and format
+            abr = info.get('abr') or info.get('tbr') or 160
+            source_bitrate = int(round(abr))
+            acodec = info.get('acodec') or info.get('ext') or 'opus'
+            filesize = info.get('filesize') or info.get('filesize_approx')
 
-                # Direct stream or video url
-                stream_url = info.get('url') or info.get('webpage_url')
+            # Direct stream or video url
+            stream_url = info.get('url') or info.get('webpage_url')
 
-                return AudioResolutionResult(
-                    stream_url=stream_url,
-                    extractor=info.get('extractor', 'youtube'),
-                    source_bitrate_kbps=source_bitrate,
-                    source_format=acodec,
-                    filesize_approx=filesize,
-                    raw_info=info,
-                )
+            return AudioResolutionResult(
+                stream_url=stream_url,
+                extractor=info.get('extractor', 'youtube'),
+                source_bitrate_kbps=source_bitrate,
+                source_format=acodec,
+                filesize_approx=filesize,
+                raw_info=info,
+            )
 
         return await loop.run_in_executor(None, _resolve)

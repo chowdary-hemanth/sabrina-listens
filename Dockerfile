@@ -12,13 +12,13 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python Backend + System FFmpeg
+# Stage 2: Python Backend + System FFmpeg + Node.js (for yt-dlp JS challenges)
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install system FFmpeg and clean up apt cache
+# Install system FFmpeg, curl, and nodejs for yt-dlp JS challenges
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl && \
+    apt-get install -y --no-install-recommends ffmpeg curl nodejs && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python requirements
