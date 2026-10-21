@@ -348,9 +348,23 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onPlayJob, onRefresh
 
                 {/* Error message box if failed */}
                 {job.status === 'failed' && job.error_message && (
-                  <div className="p-3 rounded-2xl bg-pink-950/70 border border-pink-600/50 text-xs text-white font-['Jost']">
-                    <span className="font-bold text-pink-400">Error: </span>
-                    {job.error_message}
+                  <div className="p-3.5 rounded-2xl bg-pink-950/70 border border-pink-600/50 text-xs text-white font-['Jost'] space-y-2">
+                    <div>
+                      <span className="font-bold text-pink-400">Error: </span>
+                      {job.error_message}
+                    </div>
+                    {job.error_message.toLowerCase().includes('bot') && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 font-['Google_Sans_Flex']">
+                        <a
+                          href="/api/download-desktop-app"
+                          download="SabrinaListens.exe"
+                          className="btn-shady-sm px-3 py-1 text-[11px] gap-1"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Download Desktop .exe (Runs without cloud bot checks)</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

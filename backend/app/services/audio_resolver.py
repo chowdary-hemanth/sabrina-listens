@@ -66,19 +66,27 @@ class AudioResolver:
                 err_str = str(e).lower()
                 if "bot" in err_str or "sign in" in err_str:
                     logger.warning(f"Bot detection challenge encountered during audio resolution ({e}). Retrying with mobile player client...")
-                    fallback_opts = get_default_ydl_opts({
-                        'format': 'bestaudio/best',
-                        'extract_flat': False,
-                        'noplaylist': True,
-                        'extractor_args': {
-                            'youtube': {
-                                'player_client': ['android', 'ios'],
-                                'player_skip': ['webpage', 'configs'],
-                            }
-                        },
-                    })
-                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                        info = ydl.extract_info(query, download=False)
+                    try:
+                        fallback_opts = get_default_ydl_opts({
+                            'format': 'bestaudio/best',
+                            'extract_flat': False,
+                            'noplaylist': True,
+                            'extractor_args': {
+                                'youtube': {
+                                    'player_client': ['android', 'ios'],
+                                    'player_skip': ['webpage', 'configs'],
+                                }
+                            },
+                        })
+                        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                            info = ydl.extract_info(query, download=False)
+                    except Exception as fallback_err:
+                        # Fallback to SoundCloud
+                        search_title = f"{track.artist} - {track.title}" if track.artist else track.title
+                        logger.warning(f"YouTube bot block persists on datacenter IP. Falling back to SoundCloud search for '{search_title}': {fallback_err}")
+                        sc_opts = {'quiet': True, 'format': 'bestaudio/best', 'no_warnings': True}
+                        with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
+                            info = sc_ydl.extract_info(f"scsearch1:{search_title}", download=False)
                 else:
                     raise
 

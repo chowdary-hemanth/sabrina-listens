@@ -106,3 +106,31 @@ export async function getRecentUrls(): Promise<RecentUrlItem[]> {
 export async function openContainingFolder(jobId: string): Promise<void> {
   await fetch(`${API_BASE}/open-folder/${jobId}`, { method: 'POST' });
 }
+
+export interface CookieStatus {
+  has_cookies: boolean;
+  cookie_count: number;
+  path: string | null;
+}
+
+export async function getCookieStatus(): Promise<CookieStatus> {
+  const res = await fetch(`${API_BASE}/settings/cookies/status`);
+  if (!res.ok) return { has_cookies: false, cookie_count: 0, path: null };
+  return res.json();
+}
+
+export async function saveCookies(cookiesText: string): Promise<CookieStatus> {
+  const res = await fetch(`${API_BASE}/settings/cookies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cookies_text: cookiesText }),
+  });
+  if (!res.ok) throw new Error('Failed to save cookies');
+  return res.json();
+}
+
+export async function clearCookies(): Promise<CookieStatus> {
+  const res = await fetch(`${API_BASE}/settings/cookies`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to clear cookies');
+  return res.json();
+}

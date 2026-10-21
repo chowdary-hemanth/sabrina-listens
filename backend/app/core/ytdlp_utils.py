@@ -10,19 +10,24 @@ _cached_cookie_path: Optional[str] = None
 def get_cookie_file_path() -> Optional[str]:
     """
     Finds or creates a cookie file from:
-    1. YOUTUBE_COOKIES env var (raw text of cookies.txt)
-    2. YOUTUBE_COOKIES_FILE env var (path to cookies file)
-    3. cookies.txt in current or parent directory
+    1. Local app cookie file (/tmp or backend/cookies.txt)
+    2. YOUTUBE_COOKIES env var (raw text of cookies.txt)
+    3. YOUTUBE_COOKIES_FILE env var (path to cookies file)
     """
     global _cached_cookie_path
     if _cached_cookie_path and os.path.exists(_cached_cookie_path):
         return _cached_cookie_path
 
-    # 1. Check raw env var containing the full cookies text (e.g. pasted into Render dashboard)
+    # Check dedicated temp cookie file
+    temp_cookie = Path(tempfile.gettempdir()) / "sabrina_yt_cookies.txt"
+    if temp_cookie.is_file() and temp_cookie.stat().st_size > 10:
+        _cached_cookie_path = str(temp_cookie)
+        return _cached_cookie_path
+
+    # Check raw env var containing the full cookies text (e.g. pasted into Render dashboard)
     raw_cookies = os.environ.get("YOUTUBE_COOKIES")
     if raw_cookies and raw_cookies.strip():
         try:
-            temp_cookie = Path(tempfile.gettempdir()) / "sabrina_yt_cookies.txt"
             temp_cookie.write_text(raw_cookies.strip(), encoding="utf-8")
             _cached_cookie_path = str(temp_cookie)
             logger.info(f"Loaded YouTube cookies from YOUTUBE_COOKIES environment variable -> {_cached_cookie_path}")
@@ -30,14 +35,14 @@ def get_cookie_file_path() -> Optional[str]:
         except Exception as e:
             logger.warning(f"Failed to write YOUTUBE_COOKIES to temp file: {e}")
 
-    # 2. Check file path env var
+    # Check file path env var
     cookie_file_env = os.environ.get("YOUTUBE_COOKIES_FILE")
     if cookie_file_env and os.path.isfile(cookie_file_env):
         _cached_cookie_path = cookie_file_env
         logger.info(f"Using cookies file from YOUTUBE_COOKIES_FILE -> {_cached_cookie_path}")
         return _cached_cookie_path
 
-    # 3. Check common local file locations
+    # Check common local file locations
     for candidate in [
         Path("cookies.txt"),
         Path("backend/cookies.txt"),
@@ -51,6 +56,50 @@ def get_cookie_file_path() -> Optional[str]:
             return _cached_cookie_path
 
     return None
+
+def save_cookie_content(content: str) -> Dict[str, Any]:
+    """
+    Saves Netscape format cookie content to disk and activates it immediately.
+    """
+    global _cached_cookie_path
+    temp_cookie = Path(tempfile.gettempdir()) / "sabrina_yt_cookies.txt"
+    clean_text = content.strip()
+    temp_cookie.write_text(clean_text, encoding="utf-8")
+    _cached_cookie_path = str(temp_cookie)
+    logger.info(f"Saved {len(clean_text.splitlines())} lines to {_cached_cookie_path}")
+    return get_cookie_status()
+
+def clear_cookies() -> Dict[str, Any]:
+    """
+    Clears cached cookies from disk.
+    """
+    global _cached_cookie_path
+    temp_cookie = Path(tempfile.gettempdir()) / "sabrina_yt_cookies.txt"
+    if temp_cookie.is_file():
+        try:
+            temp_cookie.unlink()
+        except Exception as e:
+            logger.warning(f"Could not delete cookie file: {e}")
+    _cached_cookie_path = None
+    return get_cookie_status()
+
+def get_cookie_status() -> Dict[str, Any]:
+    """
+    Returns the status and count of valid cookies.
+    """
+    path = get_cookie_file_path()
+    if path and os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = [l for l in f if l.strip() and not l.startswith("#")]
+            return {
+                "has_cookies": len(lines) > 0,
+                "cookie_count": len(lines),
+                "path": path,
+            }
+        except Exception:
+            return {"has_cookies": True, "cookie_count": 0, "path": path}
+    return {"has_cookies": False, "cookie_count": 0, "path": None}
 
 def get_default_ydl_opts(extra_opts: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """

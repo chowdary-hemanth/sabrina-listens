@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.core.config import settings
+from app.core.ytdlp_utils import save_cookie_content, clear_cookies, get_cookie_status
 from app.models.database import get_db, AppSettingRecord
 from app.schemas.types import SettingsModel, SettingsUpdate
 from app.workers.queue_manager import QueueManager
@@ -78,3 +80,28 @@ async def update_settings(update: SettingsUpdate, db: Session = Depends(get_db))
         settings.SPOTIFY_CLIENT_SECRET = update.spotify_client_secret
 
     return await get_settings(db)
+
+class CookieUpdateRequest(BaseModel):
+    cookies_text: str
+
+@router.get("/settings/cookies/status")
+async def cookie_status():
+    """
+    Returns current YouTube cookies configuration status.
+    """
+    return get_cookie_status()
+
+@router.post("/settings/cookies")
+async def save_cookies_endpoint(payload: CookieUpdateRequest):
+    """
+    Saves Netscape format YouTube cookies directly to disk for yt-dlp authentication.
+    """
+    return save_cookie_content(payload.cookies_text)
+
+@router.delete("/settings/cookies")
+async def clear_cookies_endpoint():
+    """
+    Clears cached YouTube cookies.
+    """
+    return clear_cookies()
+

@@ -442,20 +442,46 @@ class QueueManager:
                 err_str = str(e).lower()
                 if "bot" in err_str or "sign in" in err_str:
                     logger.warning(f"Bot detection challenge encountered during download ({e}). Retrying with mobile player client...")
-                    fallback_opts = get_default_ydl_opts({
-                        'format': 'bestaudio/best',
-                        'outtmpl': str(temp_file),
-                        'progress_hooks': [progress_hook],
-                        'overwrites': True,
-                        'extractor_args': {
-                            'youtube': {
-                                'player_client': ['android', 'ios'],
-                                'player_skip': ['webpage', 'configs'],
+                    downloaded_ok = False
+                    try:
+                        fallback_opts = get_default_ydl_opts({
+                            'format': 'bestaudio/best',
+                            'outtmpl': str(temp_file),
+                            'progress_hooks': [progress_hook],
+                            'overwrites': True,
+                            'extractor_args': {
+                                'youtube': {
+                                    'player_client': ['android', 'ios'],
+                                    'player_skip': ['webpage', 'configs'],
+                                }
+                            },
+                        })
+                        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                            ydl.download([url_to_download])
+                        downloaded_ok = True
+                    except Exception as fallback_err:
+                        logger.warning(f"Mobile client download also failed ({fallback_err}). Triggering SoundCloud fallback...")
+
+                    if not downloaded_ok:
+                        search_title = f"{job.track.artist} - {job.track.title}" if job.track.artist else job.track.title
+                        try:
+                            sc_opts = {
+                                'format': 'bestaudio/best',
+                                'outtmpl': str(temp_file),
+                                'progress_hooks': [progress_hook],
+                                'overwrites': True,
+                                'quiet': True,
+                                'no_warnings': True,
                             }
-                        },
-                    })
-                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                        ydl.download([url_to_download])
+                            with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
+                                sc_ydl.download([f"scsearch1:{search_title}"])
+                            logger.info(f"Successfully downloaded audio stream via SoundCloud fallback for '{search_title}'")
+                        except Exception as sc_err:
+                            logger.error(f"SoundCloud fallback download failed: {sc_err}")
+                            raise Exception(
+                                "YouTube Bot Verification: Render's datacenter IP is blocked by YouTube. "
+                                "To fix: Paste your YouTube cookies in Settings > YouTube Cookies, or download and run SabrinaListens.exe locally."
+                            )
                 else:
                     raise
 
