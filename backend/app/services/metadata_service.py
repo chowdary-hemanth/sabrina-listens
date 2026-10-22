@@ -120,6 +120,8 @@ class MetadataService:
             return await MetadataService._resolve_spotify(parsed)
         elif parsed.provider == ProviderType.YOUTUBE:
             return await MetadataService._resolve_youtube(parsed)
+        elif parsed.provider in (ProviderType.SOUNDCLOUD, ProviderType.BANDCAMP, ProviderType.GENERIC):
+            return await MetadataService._resolve_generic_media(parsed)
         elif parsed.provider == ProviderType.DIRECT:
             return await MetadataService._resolve_direct(parsed)
         else:
@@ -428,3 +430,88 @@ class MetadataService:
             original_url=parsed.cleaned_url,
             available_qualities=build_quality_options(320, 180),
         )
+
+    @staticmethod
+    async def _resolve_generic_media(parsed: ParsedUrl) -> ResourceResponse:
+        """Resolves generic media (SoundCloud, Bandcamp, etc.) using yt-dlp."""
+        loop = asyncio.get_event_loop()
+
+        def _fetch():
+            ydl_opts = get_default_ydl_opts({
+                'skip_download': True,
+                'extract_flat': 'in_playlist',
+                'quiet': True,
+                'no_warnings': True,
+            })
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(parsed.cleaned_url, download=False)
+                if not info:
+                    raise ValueError(f"Could not extract info from link: {parsed.cleaned_url}")
+
+                if '_type' in info and info['_type'] == 'playlist':
+                    title = info.get('title', 'Media Playlist')
+                    uploader = info.get('uploader') or info.get('artist') or str(parsed.provider).capitalize()
+                    entries = [e for e in info.get('entries', []) if e]
+                    tracks_list = []
+                    for idx, e in enumerate(entries):
+                        dur = int(e.get('duration') or 0)
+                        tracks_list.append(
+                            TrackMetadata(
+                                id=f"{parsed.provider}_{e.get('id', idx)}",
+                                title=e.get('title', f"Track {idx + 1}"),
+                                artist=e.get('uploader') or e.get('artist') or uploader,
+                                album=title,
+                                album_art_url=e.get('thumbnail'),
+                                duration_seconds=dur,
+                                track_number=idx + 1,
+                                provider=str(parsed.provider),
+                                source_url=e.get('url') or e.get('webpage_url') or parsed.cleaned_url,
+                                source_bitrate_kbps=160,
+                                source_format="audio/mp3",
+                            )
+                        )
+                    cover = info.get('thumbnails', [{}])[-1].get('url') if info.get('thumbnails') else None
+                    return ResourceResponse(
+                        resource_id=f"{parsed.provider}_pl_{abs(hash(parsed.cleaned_url))}",
+                        resource_type=ResourceType.PLAYLIST,
+                        provider=parsed.provider,
+                        title=title,
+                        artist=uploader,
+                        cover_url=cover,
+                        track_count=len(tracks_list),
+                        tracks=tracks_list,
+                        original_url=parsed.cleaned_url,
+                        available_qualities=build_quality_options(160, 210),
+                    )
+                else:
+                    title = info.get('title', 'Audio Track')
+                    uploader = info.get('artist') or info.get('uploader') or str(parsed.provider).capitalize()
+                    cover = info.get('thumbnail')
+                    dur = int(info.get('duration') or 0)
+                    track_meta = TrackMetadata(
+                        id=f"{parsed.provider}_{abs(hash(parsed.cleaned_url))}",
+                        title=title,
+                        artist=uploader,
+                        album=info.get('album') or f"{str(parsed.provider).capitalize()} Release",
+                        album_art_url=cover,
+                        duration_seconds=dur,
+                        track_number=1,
+                        provider=str(parsed.provider),
+                        source_url=parsed.cleaned_url,
+                        source_bitrate_kbps=160,
+                        source_format="audio/mp3",
+                    )
+                    return ResourceResponse(
+                        resource_id=f"{parsed.provider}_{abs(hash(parsed.cleaned_url))}",
+                        resource_type=parsed.resource_type,
+                        provider=parsed.provider,
+                        title=title,
+                        artist=uploader,
+                        cover_url=cover,
+                        track_count=1,
+                        tracks=[track_meta],
+                        original_url=parsed.cleaned_url,
+                        available_qualities=build_quality_options(160, dur),
+                    )
+
+        return await loop.run_in_executor(None, _fetch)

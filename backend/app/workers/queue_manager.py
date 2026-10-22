@@ -435,105 +435,147 @@ class QueueManager:
                 return temp_file
 
             url_to_download = resolution.raw_info.get('webpage_url') or resolution.stream_url
+            downloaded_ok = False
+
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url_to_download])
+                # Check if file was actually downloaded
+                if temp_file.exists() or list(temp_file.parent.glob(f"{temp_file.name}*")):
+                    downloaded_ok = True
             except Exception as e:
-                err_str = str(e).lower()
-                if "bot" in err_str or "sign in" in err_str:
-                    logger.warning(f"Bot detection challenge encountered during download ({e}). Retrying with mobile player client...")
-                    downloaded_ok = False
+                logger.warning(f"Initial stream download failed: {e}")
+
+            # If initial download didn't produce a file (bot block, age gate, or empty search):
+            if not downloaded_ok:
+                search_title = f"{job.track.artist} - {job.track.title}".strip(" -") if job.track.artist else job.track.title
+                logger.info(f"Triggering multi-source fallback download pipeline for: '{search_title}'")
+
+                # Step 1: Mobile player client
+                try:
+                    fallback_opts = get_default_ydl_opts({
+                        'format': 'bestaudio/best',
+                        'outtmpl': str(temp_file),
+                        'progress_hooks': [progress_hook],
+                        'overwrites': True,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['android', 'ios'],
+                                'player_skip': ['webpage', 'configs'],
+                            }
+                        },
+                    })
+                    with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                        ydl.download([url_to_download])
+                    if temp_file.exists() or list(temp_file.parent.glob(f"{temp_file.name}*")):
+                        downloaded_ok = True
+                except Exception as fallback_err:
+                    logger.warning(f"Mobile client download fallback failed: {fallback_err}")
+
+                # Step 2: YouTube Music search (bypasses age gate & guest restrictions)
+                if not downloaded_ok:
                     try:
-                        fallback_opts = get_default_ydl_opts({
+                        from urllib.parse import quote_plus
+                        ytm_url = f"https://music.youtube.com/search?q={quote_plus(search_title)}"
+                        logger.info(f"Attempting YouTube Music fallback: {ytm_url}")
+                        with yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True, 'no_warnings': True}) as ytm_ydl:
+                            ytm_res = ytm_ydl.extract_info(ytm_url, download=False)
+                            for e in (ytm_res.get('entries') or []):
+                                u = e.get('url') or e.get('webpage_url') or ''
+                                if 'watch?v=' in u:
+                                    ytm_dl_opts = get_default_ydl_opts({
+                                        'format': 'bestaudio/best',
+                                        'outtmpl': str(temp_file),
+                                        'progress_hooks': [progress_hook],
+                                        'overwrites': True,
+                                    })
+                                    try:
+                                        with yt_dlp.YoutubeDL(ytm_dl_opts) as single_dl:
+                                            single_dl.download([u])
+                                        created_files = [f for f in temp_file.parent.glob(f"{temp_file.name}*")]
+                                        if temp_file.exists() or (created_files and created_files[0].stat().st_size > 100000):
+                                            downloaded_ok = True
+                                            logger.info(f"Successfully downloaded via YouTube Music: {e.get('title')}")
+                                            break
+                                    except Exception:
+                                        continue
+                    except Exception as ytm_err:
+                        logger.warning(f"YouTube Music download pipeline failed: {ytm_err}")
+
+                # Step 3: SoundCloud multi-candidate search (skipping DRM and previews)
+                if not downloaded_ok:
+                    try:
+                        logger.info(f"Attempting SoundCloud fallback for: {search_title}")
+                        ydl_search = yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True, 'ignoreerrors': True})
+                        sc_info = ydl_search.extract_info(f"scsearch5:{search_title}", download=False)
+                        entries = sc_info.get('entries', []) if sc_info else []
+                        for entry in entries:
+                            if not entry:
+                                continue
+                            cand_url = entry.get('url') or entry.get('webpage_url')
+                            if not cand_url:
+                                continue
+                            cand_title = (entry.get('title') or '').lower()
+                            if 'preview' in cand_title or 'snippet' in cand_title:
+                                continue
+                            try:
+                                logger.info(f"Trying SoundCloud candidate: {entry.get('title')} ({cand_url})")
+                                sc_opts = {
+                                    'format': 'bestaudio/best',
+                                    'outtmpl': str(temp_file),
+                                    'progress_hooks': [progress_hook],
+                                    'overwrites': True,
+                                    'quiet': True,
+                                    'no_warnings': True,
+                                    'ignoreerrors': True,
+                                }
+                                with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
+                                    sc_ydl.download([cand_url])
+
+                                created_files = [f for f in temp_file.parent.glob(f"{temp_file.name}*")]
+                                if (temp_file.exists() and temp_file.stat().st_size > 100000) or (created_files and created_files[0].stat().st_size > 100000):
+                                    downloaded_ok = True
+                                    logger.info(f"Successfully downloaded audio via SoundCloud candidate: {entry.get('title')}")
+                                    break
+                                else:
+                                    FileManager.cleanup_file(temp_file)
+                                    for cf in created_files:
+                                        FileManager.cleanup_file(cf)
+                            except Exception as cand_err:
+                                logger.warning(f"SoundCloud candidate failed ({cand_err}), trying next candidate...")
+                                FileManager.cleanup_file(temp_file)
+                    except Exception as sc_search_err:
+                        logger.warning(f"SoundCloud search failed: {sc_search_err}")
+
+                # Step 4: YouTube Topic search
+                if not downloaded_ok:
+                    try:
+                        yt_topic_query = f"ytsearch3:{search_title} Topic"
+                        logger.info(f"Attempting YouTube Topic search: {yt_topic_query}")
+                        yt_alt_opts = get_default_ydl_opts({
                             'format': 'bestaudio/best',
                             'outtmpl': str(temp_file),
                             'progress_hooks': [progress_hook],
                             'overwrites': True,
                             'extractor_args': {
                                 'youtube': {
-                                    'player_client': ['android', 'ios'],
+                                    'player_client': ['ios', 'android'],
                                     'player_skip': ['webpage', 'configs'],
                                 }
                             },
                         })
-                        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                            ydl.download([url_to_download])
-                        downloaded_ok = True
-                    except Exception as fallback_err:
-                        logger.warning(f"Mobile client download also failed ({fallback_err}). Triggering SoundCloud fallback...")
-
-                    if not downloaded_ok:
-                        search_title = f"{job.track.artist} - {job.track.title}" if job.track.artist else job.track.title
-                        # Step A: Try SoundCloud multi-candidate search (skipping DRM and previews)
-                        try:
-                            ydl_search = yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True})
-                            sc_info = ydl_search.extract_info(f"scsearch5:{search_title}", download=False)
-                            entries = sc_info.get('entries', []) if sc_info else []
-                            for entry in entries:
-                                cand_url = entry.get('url') or entry.get('webpage_url')
-                                if not cand_url:
-                                    continue
-                                cand_title = (entry.get('title') or '').lower()
-                                if 'preview' in cand_title or 'snippet' in cand_title:
-                                    continue
-                                try:
-                                    logger.info(f"Trying SoundCloud candidate: {entry.get('title')} ({cand_url})")
-                                    sc_opts = {
-                                        'format': 'bestaudio/best',
-                                        'outtmpl': str(temp_file),
-                                        'progress_hooks': [progress_hook],
-                                        'overwrites': True,
-                                        'quiet': True,
-                                        'no_warnings': True,
-                                    }
-                                    with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
-                                        sc_ydl.download([cand_url])
-
-                                    created_files = [f for f in temp_file.parent.glob(f"{temp_file.name}*")]
-                                    if created_files and created_files[0].stat().st_size > 700000:
-                                        downloaded_ok = True
-                                        logger.info(f"Successfully downloaded audio via SoundCloud candidate: {entry.get('title')}")
-                                        break
-                                    else:
-                                        FileManager.cleanup_file(temp_file)
-                                        for cf in created_files:
-                                            FileManager.cleanup_file(cf)
-                                except Exception as cand_err:
-                                    logger.warning(f"SoundCloud candidate failed ({cand_err}), trying next candidate...")
-                                    FileManager.cleanup_file(temp_file)
-                        except Exception as sc_search_err:
-                            logger.warning(f"SoundCloud search failed: {sc_search_err}")
-
-                    # Step B: If still not downloaded, try YouTube alternate search query
-                    if not downloaded_ok:
-                        try:
-                            yt_topic_query = f"ytsearch3:{search_title} audio"
-                            logger.info(f"Trying alternate YouTube query: {yt_topic_query}")
-                            yt_alt_opts = get_default_ydl_opts({
-                                'format': 'bestaudio/best',
-                                'outtmpl': str(temp_file),
-                                'progress_hooks': [progress_hook],
-                                'overwrites': True,
-                                'extractor_args': {
-                                    'youtube': {
-                                        'player_client': ['ios', 'android'],
-                                        'player_skip': ['webpage', 'configs'],
-                                    }
-                                },
-                            })
-                            with yt_dlp.YoutubeDL(yt_alt_opts) as yt_alt_ydl:
-                                yt_alt_ydl.download([yt_topic_query])
+                        with yt_dlp.YoutubeDL(yt_alt_opts) as yt_alt_ydl:
+                            yt_alt_ydl.download([yt_topic_query])
+                        if temp_file.exists() or list(temp_file.parent.glob(f"{temp_file.name}*")):
                             downloaded_ok = True
-                        except Exception as yt_topic_err:
-                            logger.warning(f"YouTube alternate query failed: {yt_topic_err}")
+                    except Exception as yt_topic_err:
+                        logger.warning(f"YouTube Topic query failed: {yt_topic_err}")
 
-                    if not downloaded_ok:
-                        raise Exception(
-                            "Audio Download Restriction: YouTube and SoundCloud both restricted this track on cloud datacenter IPs. "
-                            "To fix: Paste cookies in Settings > YouTube Cookies, or run SabrinaListens.exe locally on your desktop."
-                        )
-                else:
-                    raise
+                if not downloaded_ok:
+                    raise Exception(
+                        f"Download failed: Unable to fetch audio for '{search_title}' across YouTube, YouTube Music, and SoundCloud. "
+                        "Please verify your internet connection or paste YouTube cookies in Settings."
+                    )
 
             # In some cases yt-dlp appends extension to outtmpl
             if not temp_file.exists():

@@ -1,5 +1,5 @@
-export type ResourceType = 'track' | 'album' | 'playlist' | 'artist' | 'youtube' | 'direct' | 'unknown';
-export type ProviderType = 'spotify' | 'youtube' | 'direct' | 'generic';
+export type ResourceType = 'track' | 'album' | 'playlist' | 'artist' | 'youtube' | 'soundcloud' | 'bandcamp' | 'direct' | 'unknown';
+export type ProviderType = 'spotify' | 'youtube' | 'soundcloud' | 'bandcamp' | 'direct' | 'generic';
 
 export type JobStatus = 
   | 'pending'

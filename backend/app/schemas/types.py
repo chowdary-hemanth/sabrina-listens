@@ -9,12 +9,16 @@ class ResourceType(str, Enum):
     PLAYLIST = "playlist"
     ARTIST = "artist"
     YOUTUBE = "youtube"
+    SOUNDCLOUD = "soundcloud"
+    BANDCAMP = "bandcamp"
     DIRECT = "direct"
     UNKNOWN = "unknown"
 
 class ProviderType(str, Enum):
     SPOTIFY = "spotify"
     YOUTUBE = "youtube"
+    SOUNDCLOUD = "soundcloud"
+    BANDCAMP = "bandcamp"
     DIRECT = "direct"
     GENERIC = "generic"
 

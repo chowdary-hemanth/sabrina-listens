@@ -23,6 +23,14 @@ SPOTIFY_ARTIST_RE = re.compile(r'open\.spotify\.com/(?:intl-[a-z]+/)?artist/([a-
 YOUTUBE_RE = re.compile(r'(?:youtube\.com/(?:watch\?v=|embed/|v/|shorts/)|youtu\.be/)([a-zA-Z0-9_-]{11})')
 YOUTUBE_PLAYLIST_RE = re.compile(r'youtube\.com/playlist\?list=([a-zA-Z0-9_-]+)')
 
+# Regex for SoundCloud
+SOUNDCLOUD_SET_RE = re.compile(r'https?://(?:www\.)?soundcloud\.com/([a-zA-Z0-9_-]+/sets/[a-zA-Z0-9_-]+)')
+SOUNDCLOUD_TRACK_RE = re.compile(r'https?://(?:www\.)?soundcloud\.com/([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)')
+
+# Regex for Bandcamp
+BANDCAMP_ALBUM_RE = re.compile(r'https?://[a-zA-Z0-9_-]+\.bandcamp\.com/album/([a-zA-Z0-9_-]+)')
+BANDCAMP_TRACK_RE = re.compile(r'https?://[a-zA-Z0-9_-]+\.bandcamp\.com/track/([a-zA-Z0-9_-]+)')
+
 # Direct audio extensions
 AUDIO_EXTENSIONS = ('.mp3', '.m4a', '.flac', '.wav', '.ogg', '.opus', '.aac')
 
@@ -108,7 +116,27 @@ async def parse_music_url(raw_url: str) -> ParsedUrl:
     if match:
         return ParsedUrl(True, ProviderType.YOUTUBE, ResourceType.YOUTUBE, match.group(1), cleaned)
 
-    # 7. Direct Audio File
+    # 7. SoundCloud Playlist / Set
+    match = SOUNDCLOUD_SET_RE.search(cleaned)
+    if match:
+        return ParsedUrl(True, ProviderType.SOUNDCLOUD, ResourceType.PLAYLIST, match.group(1), cleaned)
+
+    # 8. SoundCloud Track
+    match = SOUNDCLOUD_TRACK_RE.search(cleaned)
+    if match:
+        return ParsedUrl(True, ProviderType.SOUNDCLOUD, ResourceType.SOUNDCLOUD, match.group(1), cleaned)
+
+    # 9. Bandcamp Album
+    match = BANDCAMP_ALBUM_RE.search(cleaned)
+    if match:
+        return ParsedUrl(True, ProviderType.BANDCAMP, ResourceType.ALBUM, match.group(1), cleaned)
+
+    # 10. Bandcamp Track
+    match = BANDCAMP_TRACK_RE.search(cleaned)
+    if match:
+        return ParsedUrl(True, ProviderType.BANDCAMP, ResourceType.BANDCAMP, match.group(1), cleaned)
+
+    # 11. Direct Audio File
     parsed_path = urlparse(cleaned).path.lower()
     if any(parsed_path.endswith(ext) for ext in AUDIO_EXTENSIONS):
         filename = parsed_path.split("/")[-1]
@@ -120,5 +148,5 @@ async def parse_music_url(raw_url: str) -> ParsedUrl:
         ResourceType.UNKNOWN,
         "",
         cleaned,
-        "Unsupported URL format. Please paste a Spotify track, album, playlist, artist link, YouTube link, or direct audio link."
+        "Unsupported URL format. Please paste a Spotify, YouTube, SoundCloud, Bandcamp, or direct audio link."
     )
