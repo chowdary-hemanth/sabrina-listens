@@ -13,6 +13,7 @@ interface NavbarProps {
   onSelectTab: (tab: 'home' | 'queue' | 'library' | 'architecture' | 'settings') => void;
   activeDownloadsCount: number;
   onBackToLanding?: () => void;
+  isCloudMode?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   activeDownloadsCount,
   onBackToLanding,
+  isCloudMode = false,
 }) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-pink-600/30 bg-black/65 backdrop-blur-md">
@@ -27,14 +29,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand: Logo Image + SABRINA LISTENS in HONK font */}
         <div 
           onClick={() => {
-            if (onBackToLanding) {
+            if (isCloudMode && onBackToLanding) {
               onBackToLanding();
             } else {
               onSelectTab('home');
             }
           }}
           className="flex items-center gap-3 cursor-pointer group select-none"
-          title="Return to edition selection"
+          title={isCloudMode ? "Return to edition selection" : "Go to Discover"}
         >
           <div className="w-12 h-12 rounded-none overflow-hidden border-2 border-pink-600 shadow-lg shadow-pink-600/40 group-hover:scale-105 transition-transform bg-black flex items-center justify-center shrink-0">
             <img
@@ -50,9 +52,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-2xl sm:text-4xl font-['Honk'] tracking-wide">
               SABRINA LISTENS
             </span>
-            <span className="text-[10px] text-pink-400 font-mono tracking-wider -mt-1 hidden sm:inline">
-              CLOUD WEB EDITION (320 KBPS)
-            </span>
+            {isCloudMode ? (
+              <span className="text-[10px] text-pink-400 font-mono tracking-wider -mt-1 hidden sm:inline">
+                CLOUD WEB EDITION (320 KBPS)
+              </span>
+            ) : (
+              <span className="text-[10px] text-pink-400 font-mono tracking-wider -mt-1 hidden sm:inline">
+                DESKTOP EDITION
+              </span>
+            )}
           </div>
         </div>
 
@@ -126,8 +134,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Quick Action: Switch to Desktop / Editions */}
-          {onBackToLanding && (
+          {/* Quick Action: Switch to Desktop / Editions (Cloud mode only) */}
+          {isCloudMode && onBackToLanding && (
             <button
               onClick={onBackToLanding}
               title="Switch to Desktop App (.exe) or choose edition"

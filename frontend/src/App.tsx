@@ -23,7 +23,13 @@ import { History, Music2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'landing' | 'app'>(() => {
-    return window.location.hash === '#app' ? 'app' : 'landing';
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      if (host === 'localhost' || host === '127.0.0.1' || window.location.hash === '#app') {
+        return 'app';
+      }
+    }
+    return 'landing';
   });
   const [currentTab, setCurrentTab] = useState<'home' | 'queue' | 'library' | 'architecture' | 'settings'>('home');
   const [isResolving, setIsResolving] = useState(false);
@@ -37,14 +43,24 @@ export const App: React.FC = () => {
 
   // Load settings and recent URLs on mount
   useEffect(() => {
-    getSettings().then(setSettings).catch(console.error);
+    getSettings().then((s) => {
+      setSettings(s);
+      if (!s.cloud_mode) {
+        setViewMode('app');
+      }
+    }).catch(console.error);
+
     getRecentUrls().then(setRecentUrls).catch(console.error);
 
     const onHashChange = () => {
       if (window.location.hash === '#app') {
         setViewMode('app');
       } else if (!window.location.hash) {
-        setViewMode('landing');
+        const host = window.location.hostname;
+        const isLocal = host === 'localhost' || host === '127.0.0.1';
+        if (!isLocal) {
+          setViewMode('landing');
+        }
       }
     };
     window.addEventListener('hashchange', onHashChange);
@@ -108,7 +124,8 @@ export const App: React.FC = () => {
               currentTab={currentTab}
               onSelectTab={setCurrentTab}
               activeDownloadsCount={queueSummary.active_jobs}
-              onBackToLanding={handleBackToLanding}
+              onBackToLanding={settings?.cloud_mode ? handleBackToLanding : undefined}
+              isCloudMode={settings?.cloud_mode ?? false}
             />
           </div>
 
