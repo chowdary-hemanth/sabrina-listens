@@ -51,6 +51,28 @@ class AudioResolver:
                 'noplaylist': True,
             })
 
+            def is_acceptable_candidate(cand):
+                if not cand:
+                    return False
+                title = (cand.get('title') or '').lower()
+                # Reject ambient noise / 1-hour / 10-hour / sleep / loop / full album mixes
+                noise_keywords = [
+                    '10 hours', '12 hours', '100 hours', '1 hour', '8 hours', '3 hours', '2 hours',
+                    'deep sleep', 'sleep music', 'white noise', 'rain sounds', 'waterfall sounds',
+                    'nature sounds', 'relaxing sounds', 'ambient sound', 'binaural', 'meditation music'
+                ]
+                if any(k in title for k in noise_keywords):
+                    return False
+                expected_dur = track.duration_seconds
+                if expected_dur and expected_dur > 0:
+                    cand_dur = cand.get('duration') or 0
+                    if cand_dur > 0:
+                        diff = abs(cand_dur - expected_dur)
+                        # Reject if off by >60s and more than 1.6x or less than 0.4x expected length
+                        if diff > 60 and (cand_dur > expected_dur * 1.6 or cand_dur < expected_dur * 0.4):
+                            return False
+                return True
+
             info = None
 
             # 1. Direct source URL if provided (e.g. YouTube, SoundCloud, Bandcamp)
@@ -64,21 +86,19 @@ class AudioResolver:
                 except Exception as direct_err:
                     logger.warning(f"Direct source extraction failed ({direct_err}), falling back to search pipeline...")
 
-            # 2. Tier 1: Standard YouTube Search
+            # 2. Tier 1: Standard YouTube Search (with duration sanity filter)
             if not info:
                 try:
-                    query = f"ytsearch1:{search_title} audio"
+                    query = f"ytsearch5:{search_title}"
                     logger.info(f"Resolving audio stream (Tier 1 YouTube): {query}")
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         res = ydl.extract_info(query, download=False)
                         if res:
-                            entries = res.get('entries')
-                            if entries is not None:
-                                valid = [e for e in entries if e]
-                                if valid:
-                                    info = valid[0]
-                            else:
-                                info = res
+                            entries = [e for e in (res.get('entries') or []) if e]
+                            for e in entries:
+                                if is_acceptable_candidate(e):
+                                    info = e
+                                    break
                 except Exception as e:
                     logger.warning(f"Tier 1 YouTube search error ({e}), moving to next tier...")
 
@@ -96,7 +116,7 @@ class AudioResolver:
                                 try:
                                     with yt_dlp.YoutubeDL(ydl_opts) as single_ydl:
                                         cand_info = single_ydl.extract_info(u, download=False)
-                                        if cand_info:
+                                        if cand_info and is_acceptable_candidate(cand_info):
                                             info = cand_info
                                             logger.info(f"Successfully resolved via YouTube Music: {cand_info.get('title')}")
                                             break
@@ -108,7 +128,7 @@ class AudioResolver:
             # 4. Tier 3: YouTube Mobile Client + Topic Search
             if not info:
                 try:
-                    topic_query = f"ytsearch1:{search_title} Topic"
+                    topic_query = f"ytsearch5:{search_title} Topic"
                     logger.info(f"Resolving audio stream (Tier 3 YouTube Topic): {topic_query}")
                     fallback_opts = get_default_ydl_opts({
                         'format': 'bestaudio/best',
@@ -124,13 +144,11 @@ class AudioResolver:
                     with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                         res = ydl.extract_info(topic_query, download=False)
                         if res:
-                            entries = res.get('entries')
-                            if entries is not None:
-                                valid = [e for e in entries if e]
-                                if valid:
-                                    info = valid[0]
-                            else:
-                                info = res
+                            entries = [e for e in (res.get('entries') or []) if e]
+                            for e in entries:
+                                if is_acceptable_candidate(e):
+                                    info = e
+                                    break
                 except Exception as topic_err:
                     logger.warning(f"Tier 3 YouTube Topic search failed ({topic_err}), moving to next tier...")
 
@@ -154,7 +172,7 @@ class AudioResolver:
                             try:
                                 with yt_dlp.YoutubeDL({'quiet': True, 'format': 'bestaudio/best', 'no_warnings': True, 'ignoreerrors': True}) as cand_ydl:
                                     c_info = cand_ydl.extract_info(cand_url, download=False)
-                                    if c_info and not c_info.get('drm'):
+                                    if c_info and not c_info.get('drm') and is_acceptable_candidate(c_info):
                                         fmts = c_info.get('formats', [])
                                         if any('preview' not in (f.get('format_id') or '') for f in fmts):
                                             info = c_info
