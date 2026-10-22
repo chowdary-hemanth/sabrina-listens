@@ -3,8 +3,6 @@ import {
   Download,
   Cloud,
   Check,
-  Zap,
-  Sparkles,
   Laptop,
   Globe,
 } from 'lucide-react';
@@ -66,12 +64,8 @@ export const LandingView: React.FC<LandingViewProps> = ({ onLaunchCloud }) => {
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-pink-600/20 rounded-full blur-3xl pointer-events-none" />
 
           <div className="space-y-6">
-            {/* Top Pill / Badge */}
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-pink-950/80 text-pink-300 border border-pink-600/60 font-['Google_Sans_Flex']">
-                <Sparkles className="w-3.5 h-3.5 text-pink-400" />
-                MAX QUALITY & FORMATS
-              </span>
+            {/* Top Tag */}
+            <div className="flex items-center justify-end">
               <span className="text-xs text-white/60 font-mono">Option 1</span>
             </div>
 
@@ -138,12 +132,8 @@ export const LandingView: React.FC<LandingViewProps> = ({ onLaunchCloud }) => {
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-pink-600/20 rounded-full blur-3xl pointer-events-none" />
 
           <div className="space-y-6">
-            {/* Top Pill / Badge */}
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-pink-950/80 text-pink-300 border border-pink-600/60 font-['Google_Sans_Flex']">
-                <Zap className="w-3.5 h-3.5 text-pink-400" />
-                INSTANT BROWSER ACCESS
-              </span>
+            {/* Top Tag */}
+            <div className="flex items-center justify-end">
               <span className="text-xs text-white/60 font-mono">Option 2</span>
             </div>
 

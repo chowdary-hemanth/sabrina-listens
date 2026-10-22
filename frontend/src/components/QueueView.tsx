@@ -6,7 +6,6 @@ import {
   XCircle,
   RotateCw,
   FolderOpen,
-  Play,
   Clock,
   Zap,
   Music,
@@ -17,11 +16,11 @@ import { cancelJob, retryJob, openContainingFolder } from '../services/api';
 
 interface QueueViewProps {
   jobs: DownloadJobStatus[];
-  onPlayJob?: (job: DownloadJobStatus) => void;
   onRefresh?: () => void;
+  isCloudMode?: boolean;
 }
 
-export const QueueView: React.FC<QueueViewProps> = ({ jobs, onPlayJob, onRefresh }) => {
+export const QueueView: React.FC<QueueViewProps> = ({ jobs, onRefresh, isCloudMode = false }) => {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
@@ -302,35 +301,33 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onPlayJob, onRefresh
                       </button>
                     )}
 
-                    {/* Completed: Play, Save to Computer, and Open Folder buttons */}
+                    {/* Completed: Conditional buttons for Cloud vs Desktop Mode */}
                     {job.status === 'completed' && (
                       <>
-                        {onPlayJob && (
-                          <button
-                            onClick={() => onPlayJob(job)}
-                            className="p-2 rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Play in web player"
+                        {/* Cloud Mode: Save button only (manual browser download) */}
+                        {isCloudMode && (
+                          <a
+                            href={`/api/download-file/${job.job_id}`}
+                            download
+                            className="btn-shady-sm px-3 gap-1.5"
+                            title="Save audio file to your device"
                           >
-                            <Play className="w-4 h-4 text-pink-500" />
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Save</span>
+                          </a>
+                        )}
+
+                        {/* Desktop (.exe) Mode: Folder button only (file is already auto-saved to PC) */}
+                        {!isCloudMode && (
+                          <button
+                            onClick={() => handleOpenFolder(job.job_id)}
+                            className="btn-shady-secondary-sm px-3.5 gap-1.5"
+                            title="Open downloaded folder in Explorer"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-pink-400" />
+                            <span>Open Folder</span>
                           </button>
                         )}
-                        <a
-                          href={`/api/download-file/${job.job_id}`}
-                          download
-                          className="btn-shady-sm px-3 gap-1.5"
-                          title="Save audio file to computer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Save</span>
-                        </a>
-                        <button
-                          onClick={() => handleOpenFolder(job.job_id)}
-                          className="btn-shady-secondary-sm px-3 gap-1.5"
-                          title="Open folder in Explorer"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5 text-pink-400" />
-                          <span className="hidden sm:inline">Folder</span>
-                        </button>
                       </>
                     )}
                   </div>

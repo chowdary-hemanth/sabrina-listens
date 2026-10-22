@@ -464,24 +464,74 @@ class QueueManager:
 
                     if not downloaded_ok:
                         search_title = f"{job.track.artist} - {job.track.title}" if job.track.artist else job.track.title
+                        # Step A: Try SoundCloud multi-candidate search (skipping DRM and previews)
                         try:
-                            sc_opts = {
+                            ydl_search = yt_dlp.YoutubeDL({'quiet': True, 'extract_flat': True})
+                            sc_info = ydl_search.extract_info(f"scsearch5:{search_title}", download=False)
+                            entries = sc_info.get('entries', []) if sc_info else []
+                            for entry in entries:
+                                cand_url = entry.get('url') or entry.get('webpage_url')
+                                if not cand_url:
+                                    continue
+                                cand_title = (entry.get('title') or '').lower()
+                                if 'preview' in cand_title or 'snippet' in cand_title:
+                                    continue
+                                try:
+                                    logger.info(f"Trying SoundCloud candidate: {entry.get('title')} ({cand_url})")
+                                    sc_opts = {
+                                        'format': 'bestaudio/best',
+                                        'outtmpl': str(temp_file),
+                                        'progress_hooks': [progress_hook],
+                                        'overwrites': True,
+                                        'quiet': True,
+                                        'no_warnings': True,
+                                    }
+                                    with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
+                                        sc_ydl.download([cand_url])
+
+                                    created_files = [f for f in temp_file.parent.glob(f"{temp_file.name}*")]
+                                    if created_files and created_files[0].stat().st_size > 700000:
+                                        downloaded_ok = True
+                                        logger.info(f"Successfully downloaded audio via SoundCloud candidate: {entry.get('title')}")
+                                        break
+                                    else:
+                                        FileManager.cleanup_file(temp_file)
+                                        for cf in created_files:
+                                            FileManager.cleanup_file(cf)
+                                except Exception as cand_err:
+                                    logger.warning(f"SoundCloud candidate failed ({cand_err}), trying next candidate...")
+                                    FileManager.cleanup_file(temp_file)
+                        except Exception as sc_search_err:
+                            logger.warning(f"SoundCloud search failed: {sc_search_err}")
+
+                    # Step B: If still not downloaded, try YouTube alternate search query
+                    if not downloaded_ok:
+                        try:
+                            yt_topic_query = f"ytsearch3:{search_title} audio"
+                            logger.info(f"Trying alternate YouTube query: {yt_topic_query}")
+                            yt_alt_opts = get_default_ydl_opts({
                                 'format': 'bestaudio/best',
                                 'outtmpl': str(temp_file),
                                 'progress_hooks': [progress_hook],
                                 'overwrites': True,
-                                'quiet': True,
-                                'no_warnings': True,
-                            }
-                            with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
-                                sc_ydl.download([f"scsearch1:{search_title}"])
-                            logger.info(f"Successfully downloaded audio stream via SoundCloud fallback for '{search_title}'")
-                        except Exception as sc_err:
-                            logger.error(f"SoundCloud fallback download failed: {sc_err}")
-                            raise Exception(
-                                "YouTube Bot Verification: Render's datacenter IP is blocked by YouTube. "
-                                "To fix: Paste your YouTube cookies in Settings > YouTube Cookies, or download and run SabrinaListens.exe locally."
-                            )
+                                'extractor_args': {
+                                    'youtube': {
+                                        'player_client': ['ios', 'android'],
+                                        'player_skip': ['webpage', 'configs'],
+                                    }
+                                },
+                            })
+                            with yt_dlp.YoutubeDL(yt_alt_opts) as yt_alt_ydl:
+                                yt_alt_ydl.download([yt_topic_query])
+                            downloaded_ok = True
+                        except Exception as yt_topic_err:
+                            logger.warning(f"YouTube alternate query failed: {yt_topic_err}")
+
+                    if not downloaded_ok:
+                        raise Exception(
+                            "Audio Download Restriction: YouTube and SoundCloud both restricted this track on cloud datacenter IPs. "
+                            "To fix: Paste cookies in Settings > YouTube Cookies, or run SabrinaListens.exe locally on your desktop."
+                        )
                 else:
                     raise
 

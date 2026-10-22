@@ -124,6 +124,7 @@ class SettingsModel(BaseModel):
     ffmpeg_detected: bool
     ffmpeg_path: Optional[str] = None
     spotify_configured: bool = False
+    cloud_mode: bool = False
 
 class SettingsUpdate(BaseModel):
     output_directory: Optional[str] = None

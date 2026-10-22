@@ -81,12 +81,23 @@ class AudioResolver:
                         with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                             info = ydl.extract_info(query, download=False)
                     except Exception as fallback_err:
-                        # Fallback to SoundCloud
+                        # Fallback to SoundCloud multi-candidate search
                         search_title = f"{track.artist} - {track.title}" if track.artist else track.title
                         logger.warning(f"YouTube bot block persists on datacenter IP. Falling back to SoundCloud search for '{search_title}': {fallback_err}")
                         sc_opts = {'quiet': True, 'format': 'bestaudio/best', 'no_warnings': True}
                         with yt_dlp.YoutubeDL(sc_opts) as sc_ydl:
-                            info = sc_ydl.extract_info(f"scsearch1:{search_title}", download=False)
+                            sc_res = sc_ydl.extract_info(f"scsearch5:{search_title}", download=False)
+                            entries = sc_res.get('entries', []) if sc_res else []
+                            # Pick first non-preview, non-DRM entry
+                            chosen = None
+                            for e in entries:
+                                title_l = (e.get('title') or '').lower()
+                                fmts = e.get('formats', [])
+                                has_full_audio = any('preview' not in (f.get('format_id') or '') for f in fmts)
+                                if 'preview' not in title_l and 'snippet' not in title_l and has_full_audio:
+                                    chosen = e
+                                    break
+                            info = chosen or (entries[0] if entries else None)
                 else:
                     raise
 

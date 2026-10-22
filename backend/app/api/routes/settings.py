@@ -44,6 +44,7 @@ async def get_settings(db: Session = Depends(get_db)):
         ffmpeg_detected=detected_ffmpeg is not None,
         ffmpeg_path=detected_ffmpeg,
         spotify_configured=bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
+        cloud_mode=bool(settings.CLOUD_MODE),
     )
 
 @router.put("/settings", response_model=SettingsModel)

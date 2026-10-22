@@ -3,7 +3,6 @@ import {
   History as HistoryIcon,
   Search,
   Trash2,
-  Play,
   FolderOpen,
   Music,
   CheckCircle2,
@@ -14,10 +13,10 @@ import { HistoryItem } from '../types';
 import { getHistory, clearHistory, openContainingFolder } from '../services/api';
 
 interface LibraryViewProps {
-  onPlayHistoryItem?: (item: HistoryItem) => void;
+  isCloudMode?: boolean;
 }
 
-export const LibraryView: React.FC<LibraryViewProps> = ({ onPlayHistoryItem }) => {
+export const LibraryView: React.FC<LibraryViewProps> = ({ isCloudMode = false }) => {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -235,34 +234,30 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ onPlayHistoryItem }) =
 
                 {item.status === 'completed' && (
                   <>
-                    {onPlayHistoryItem && (
-                      <button
-                        onClick={() => onPlayHistoryItem(item)}
-                        className="p-2 rounded-full text-white hover:text-pink-400 hover:bg-white/10 transition-colors"
-                        title="Play in web player"
+                    {/* Cloud Mode: Save button (manual browser download) */}
+                    {isCloudMode && (
+                      <a
+                        href={`/api/download-file/${item.id}`}
+                        download
+                        className="btn-shady-sm px-3 gap-1.5"
+                        title="Save audio file to your device"
                       >
-                        <Play className="w-4 h-4 text-pink-500" />
-                      </button>
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Save</span>
+                      </a>
                     )}
 
-                    <a
-                      href={`/api/download-file/${item.id}`}
-                      download
-                      className="btn-shady-sm px-3 gap-1.5"
-                      title="Save audio file to computer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Save</span>
-                    </a>
-
-                    <button
-                      onClick={() => handleOpenFolder(item.id)}
-                      className="btn-shady-secondary-sm px-3.5 gap-1.5"
-                      title="Reveal in folder"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5 text-pink-400" />
-                      <span className="hidden sm:inline">Folder</span>
-                    </button>
+                    {/* Desktop (.exe) Mode: Folder button (already auto-saved to PC) */}
+                    {!isCloudMode && (
+                      <button
+                        onClick={() => handleOpenFolder(item.id)}
+                        className="btn-shady-secondary-sm px-3.5 gap-1.5"
+                        title="Reveal in folder"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-pink-400" />
+                        <span>Folder</span>
+                      </button>
+                    )}
                   </>
                 )}
               </div>

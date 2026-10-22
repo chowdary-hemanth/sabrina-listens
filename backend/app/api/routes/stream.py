@@ -1,9 +1,12 @@
 import os
+import sys
 import subprocess
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from app.core.config import settings
+from app.core.logging import logger
 from app.models.database import get_db, JobRecord, HistoryRecord
 
 router = APIRouter()
@@ -93,20 +96,35 @@ async def open_containing_folder(job_id: str, db: Session = Depends(get_db)):
         hist = db.query(HistoryRecord).filter(HistoryRecord.id == job_id).first()
         file_path = hist.file_path if hist else None
 
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File path does not exist.")
+    norm_path = os.path.normpath(os.path.abspath(file_path)) if file_path else ""
+    target_to_open = None
+
+    if norm_path and os.path.exists(norm_path):
+        target_to_open = norm_path
+    else:
+        # Fallback to configured SabrinaListens output directory
+        target_to_open = os.path.normpath(str(settings.resolved_output_dir))
 
     try:
         if os.name == 'nt':
-            # Select file in Windows Explorer
-            subprocess.run(["explorer", f"/select,{os.path.normpath(file_path)}"], check=False)
+            if os.path.isfile(target_to_open):
+                # /select,"path" where quote is strictly AFTER comma so explorer doesn't fail back to Documents
+                subprocess.Popen(f'explorer.exe /select,"{target_to_open}"', shell=True)
+            else:
+                subprocess.Popen(f'explorer.exe "{target_to_open}"', shell=True)
+        elif sys.platform == 'darwin':
+            if os.path.isfile(target_to_open):
+                subprocess.Popen(['open', '-R', target_to_open])
+            else:
+                subprocess.Popen(['open', target_to_open])
         else:
-            # macOS / Linux fallback
-            subprocess.run(["open", os.path.dirname(file_path)], check=False)
+            folder = os.path.dirname(target_to_open) if os.path.isfile(target_to_open) else target_to_open
+            subprocess.Popen(['xdg-open', folder])
     except Exception as e:
+        logger.error(f"Failed to open folder: {e}")
         raise HTTPException(status_code=500, detail=f"Could not open folder: {e}")
 
-    return {"message": "Folder opened", "path": file_path}
+    return {"message": "Folder opened", "path": target_to_open}
 
 @router.get("/download-desktop-app")
 async def download_desktop_app():

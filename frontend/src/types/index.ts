@@ -94,6 +94,7 @@ export interface SettingsModel {
   ffmpeg_detected: boolean;
   ffmpeg_path?: string | null;
   spotify_configured: boolean;
+  cloud_mode?: boolean;
   spotify_client_id?: string;
   spotify_client_secret?: string;
 }

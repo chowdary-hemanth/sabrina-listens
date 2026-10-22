@@ -7,7 +7,6 @@ import { QueueView } from './components/QueueView';
 import { LibraryView } from './components/LibraryView';
 import { ArchitectureView } from './components/ArchitectureView';
 import { SettingsView } from './components/SettingsView';
-import { AudioPlayer, PlayingTrack } from './components/AudioPlayer';
 import { useDownloadEvents } from './hooks/useDownloadEvents';
 import {
   resolveUrl,
@@ -19,8 +18,6 @@ import {
   ResourceResponse,
   SettingsModel,
   RecentUrlItem,
-  DownloadJobStatus,
-  HistoryItem,
 } from './types';
 import { History, Music2 } from 'lucide-react';
 
@@ -35,7 +32,6 @@ export const App: React.FC = () => {
   const [isEnqueuing, setIsEnqueuing] = useState(false);
   const [settings, setSettings] = useState<SettingsModel | null>(null);
   const [recentUrls, setRecentUrls] = useState<RecentUrlItem[]>([]);
-  const [playingTrack, setPlayingTrack] = useState<PlayingTrack | null>(null);
 
   const { queueSummary, refreshQueue } = useDownloadEvents();
 
@@ -93,26 +89,6 @@ export const App: React.FC = () => {
     } finally {
       setIsEnqueuing(false);
     }
-  };
-
-  const handlePlayJob = (job: DownloadJobStatus) => {
-    setPlayingTrack({
-      id: job.job_id,
-      title: job.title,
-      artist: job.artist,
-      cover_url: job.cover_url,
-      audio_url: `/api/stream/${job.job_id}`,
-    });
-  };
-
-  const handlePlayHistoryItem = (item: HistoryItem) => {
-    setPlayingTrack({
-      id: item.id,
-      title: item.title,
-      artist: item.artist,
-      cover_url: item.cover_url,
-      audio_url: `/api/stream/${item.id}`,
-    });
   };
 
   return (
@@ -211,8 +187,8 @@ export const App: React.FC = () => {
               <div className="animate-fade-in">
                 <QueueView
                   jobs={queueSummary.jobs}
-                  onPlayJob={handlePlayJob}
                   onRefresh={refreshQueue}
+                  isCloudMode={settings?.cloud_mode ?? false}
                 />
               </div>
             )}
@@ -220,7 +196,7 @@ export const App: React.FC = () => {
             {/* History Tab */}
             {currentTab === 'library' && (
               <div className="animate-fade-in">
-                <LibraryView onPlayHistoryItem={handlePlayHistoryItem} />
+                <LibraryView isCloudMode={settings?.cloud_mode ?? false} />
               </div>
             )}
 
@@ -241,12 +217,6 @@ export const App: React.FC = () => {
               </div>
             )}
           </main>
-
-          {/* Bottom Sticky Audio Player */}
-          <AudioPlayer
-            track={playingTrack}
-            onClose={() => setPlayingTrack(null)}
-          />
         </>
       )}
     </div>
