@@ -12,6 +12,7 @@ import {
   Key,
   Trash2,
   Upload,
+  FolderTree,
 } from 'lucide-react';
 import { SettingsModel } from '../types';
 import { updateSettings, getCookieStatus, saveCookies, clearCookies, CookieStatus } from '../services/api';
@@ -30,6 +31,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [concurrency, setConcurrency] = useState(3);
   const [defaultQuality, setDefaultQuality] = useState('mp3_320');
   const [namingTemplate, setNamingTemplate] = useState('{track} - {title}');
+  const [folderOrg, setFolderOrg] = useState<'artist_album' | 'album' | 'playlist'>('artist_album');
   const [ffmpegPath, setFfmpegPath] = useState('');
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
@@ -54,11 +56,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setConcurrency(settings.max_concurrent_downloads);
       setDefaultQuality(settings.default_quality);
       setNamingTemplate(settings.naming_template);
+      setFolderOrg((settings.folder_organization as any) || 'artist_album');
       setFfmpegPath(settings.ffmpeg_path || '');
       setClientId(settings.spotify_client_id || '');
       setClientSecret(settings.spotify_client_secret || '');
     }
   }, [settings]);
+
+  const handleFolderOrgChange = (newOrg: 'artist_album' | 'album' | 'playlist') => {
+    setFolderOrg(newOrg);
+    if (newOrg === 'playlist') {
+      setNamingTemplate('{title}');
+    } else {
+      if (namingTemplate === '{title}' || !namingTemplate) {
+        setNamingTemplate('{track} - {title}');
+      }
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +84,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         max_concurrent_downloads: concurrency,
         default_quality: defaultQuality,
         naming_template: namingTemplate,
+        folder_organization: folderOrg,
         ffmpeg_path: ffmpegPath || undefined,
         spotify_client_id: clientId || undefined,
         spotify_client_secret: clientSecret || undefined,
@@ -154,8 +169,96 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             className="w-full bg-black/60 border border-pink-600/40 rounded-2xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-pink-500 transition-colors font-mono"
           />
           <p className="text-xs text-white/60">
-            Files are automatically organized as: <code className="text-pink-400">Artist / Album / [Track] - Title.ext</code>
+            Files are currently organized as:{' '}
+            <code className="text-pink-400">
+              {folderOrg === 'playlist'
+                ? '[Playlist Name] / [Title].ext'
+                : folderOrg === 'album'
+                ? '[Album Name] / [Track] - [Title].ext'
+                : '[Artist] / [Album] / [Track] - [Title].ext'}
+            </code>
           </p>
+        </div>
+
+        {/* Local Folder Organization */}
+        <div className="space-y-3 bg-black/45 p-5 rounded-2xl border border-pink-600/25">
+          <label className="text-sm font-semibold text-white flex items-center gap-2">
+            <FolderTree className="w-4 h-4 text-pink-500" />
+            <span>Local Folder Organization</span>
+          </label>
+          <p className="text-xs text-white/70">
+            Choose how downloaded audio files are structured locally on disk (playlists are user-created collections of songs, distinct from albums):
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <label
+              className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                folderOrg === 'playlist'
+                  ? 'border-pink-500 bg-pink-950/40 text-white shadow-sm'
+                  : 'border-pink-600/20 bg-black/40 text-white/70 hover:border-pink-600/40'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="folder_org"
+                  value="playlist"
+                  checked={folderOrg === 'playlist'}
+                  onChange={() => handleFolderOrgChange('playlist')}
+                  className="accent-pink-600"
+                />
+                <span className="font-bold text-xs sm:text-sm">By Playlist</span>
+              </div>
+              <span className="text-[11px] text-white/60 font-mono mt-1.5 pl-5">
+                Playlist / Title.ext
+              </span>
+            </label>
+
+            <label
+              className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                folderOrg === 'artist_album'
+                  ? 'border-pink-500 bg-pink-950/40 text-white shadow-sm'
+                  : 'border-pink-600/20 bg-black/40 text-white/70 hover:border-pink-600/40'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="folder_org"
+                  value="artist_album"
+                  checked={folderOrg === 'artist_album'}
+                  onChange={() => handleFolderOrgChange('artist_album')}
+                  className="accent-pink-600"
+                />
+                <span className="font-bold text-xs sm:text-sm">By Artist & Album</span>
+              </div>
+              <span className="text-[11px] text-white/60 font-mono mt-1.5 pl-5">
+                Artist / Album / Track - Title.ext
+              </span>
+            </label>
+
+            <label
+              className={`flex flex-col p-3.5 rounded-xl border cursor-pointer transition-all ${
+                folderOrg === 'album'
+                  ? 'border-pink-500 bg-pink-950/40 text-white shadow-sm'
+                  : 'border-pink-600/20 bg-black/40 text-white/70 hover:border-pink-600/40'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="folder_org"
+                  value="album"
+                  checked={folderOrg === 'album'}
+                  onChange={() => handleFolderOrgChange('album')}
+                  className="accent-pink-600"
+                />
+                <span className="font-bold text-xs sm:text-sm">By Just Album</span>
+              </div>
+              <span className="text-[11px] text-white/60 font-mono mt-1.5 pl-5">
+                Album / Track - Title.ext
+              </span>
+            </label>
+          </div>
         </div>
 
         {/* Concurrency and Default Quality Grid */}
@@ -174,10 +277,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               min="1"
               max="8"
               value={concurrency}
-              onChange={(e) => setConcurrency(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setConcurrency(val);
+                updateSettings({ max_concurrent_downloads: val })
+                  .then((updated) => onUpdated(updated))
+                  .catch(console.error);
+              }}
               className="w-full accent-pink-600 cursor-pointer"
             />
-            <p className="text-xs text-white/60">Simultaneous active downloads</p>
+            <p className="text-xs text-white/60">Simultaneous active downloads (live adjustment up to 8)</p>
           </div>
 
           {/* Default Quality */}
@@ -214,6 +323,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           />
           <p className="text-xs text-white/60">
             Available tags: <code className="text-pink-400">{'{track}'}</code>, <code className="text-pink-400">{'{title}'}</code>, <code className="text-pink-400">{'{artist}'}</code>, <code className="text-pink-400">{'{album}'}</code>
+            {folderOrg === 'playlist' ? (
+              <span className="block text-pink-300 font-semibold mt-1">
+                • Playlist organization mode uses <code className="text-pink-400">{'{title}'}</code>
+              </span>
+            ) : (
+              <span className="block text-white/60 mt-1">
+                • Album and artist organization modes default to <code className="text-pink-400">{'{track} - {title}'}</code>
+              </span>
+            )}
           </p>
         </div>
 

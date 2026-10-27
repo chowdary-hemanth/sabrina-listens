@@ -26,6 +26,7 @@ class DownloadJob:
         target_format: str,
         target_bitrate_kbps: Optional[int],
         custom_output_dir: Optional[str] = None,
+        playlist_name: Optional[str] = None,
     ):
         self.job_id = job_id
         self.track = track
@@ -33,6 +34,7 @@ class DownloadJob:
         self.target_format = target_format
         self.target_bitrate_kbps = target_bitrate_kbps
         self.custom_output_dir = custom_output_dir
+        self.playlist_name = playlist_name
 
         self.status: JobStatus = JobStatus.PENDING
         self.progress_percent: float = 0.0
@@ -72,13 +74,60 @@ class DownloadJob:
             updated_at=self.updated_at.isoformat(),
         )
 
+class DynamicSemaphore:
+    def __init__(self, capacity: int):
+        self._capacity = max(1, capacity)
+        self._active = 0
+        self._waiters: List[asyncio.Future] = []
+
+    @property
+    def capacity(self) -> int:
+        return self._capacity
+
+    async def acquire(self):
+        loop = asyncio.get_running_loop()
+        while self._active >= self._capacity:
+            fut = loop.create_future()
+            self._waiters.append(fut)
+            try:
+                await fut
+            except Exception:
+                if fut in self._waiters:
+                    self._waiters.remove(fut)
+                raise
+        self._active += 1
+
+    def release(self):
+        self._active = max(0, self._active - 1)
+        self._wake_waiters()
+
+    def set_capacity(self, new_capacity: int):
+        self._capacity = max(1, new_capacity)
+        self._wake_waiters()
+
+    def _wake_waiters(self):
+        available = self._capacity - self._active
+        while available > 0 and self._waiters:
+            waiter = self._waiters.pop(0)
+            if not waiter.done():
+                waiter.set_result(None)
+                available -= 1
+
+    async def __aenter__(self):
+        await self.acquire()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+
+
 class QueueManager:
     _instance = None
 
     def __init__(self):
         self.jobs: Dict[str, DownloadJob] = {}
         self.subscribers: Set[asyncio.Queue] = set()
-        self.concurrency_semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_DOWNLOADS)
+        self.concurrency_semaphore = DynamicSemaphore(settings.MAX_CONCURRENT_DOWNLOADS)
         self.running_tasks: Dict[str, asyncio.Task] = {}
 
     @classmethod
@@ -88,7 +137,7 @@ class QueueManager:
         return cls._instance
 
     def update_concurrency(self, max_concurrent: int):
-        self.concurrency_semaphore = asyncio.Semaphore(max_concurrent)
+        self.concurrency_semaphore.set_capacity(max_concurrent)
 
     async def subscribe(self) -> asyncio.Queue:
         q = asyncio.Queue()
@@ -186,6 +235,7 @@ class QueueManager:
         track: TrackMetadata,
         quality_id: str = "mp3_320",
         custom_output_dir: Optional[str] = None,
+        playlist_name: Optional[str] = None,
     ) -> DownloadJob:
         # Deduplication
         for j in self.jobs.values():
@@ -225,6 +275,7 @@ class QueueManager:
             target_format=target_format,
             target_bitrate_kbps=target_bitrate,
             custom_output_dir=custom_output_dir,
+            playlist_name=playlist_name,
         )
         self.jobs[job_id] = job
         await self.broadcast(job)
@@ -255,6 +306,15 @@ class QueueManager:
 
         await self.broadcast(job)
         return True
+
+    async def retry_all_failed(self) -> List[DownloadJob]:
+        retried = []
+        for job_id, job in list(self.jobs.items()):
+            if job.status in (JobStatus.FAILED, JobStatus.CANCELLED):
+                res = await self.retry_job(job_id)
+                if res:
+                    retried.append(res)
+        return retried
 
     async def retry_job(self, job_id: str) -> Optional[DownloadJob]:
         job = self.jobs.get(job_id)
@@ -346,10 +406,27 @@ class QueueManager:
                 await TaggingService.apply_metadata_and_artwork(working_file, job.track)
 
                 # 6. Move to final destination
+                from app.models.database import AppSettingRecord
+                db_sett = SessionLocal()
+                folder_org = "artist_album"
+                naming_template = None
+                try:
+                    rec_org = db_sett.query(AppSettingRecord).filter(AppSettingRecord.key == "folder_organization").first()
+                    if rec_org and rec_org.value:
+                        folder_org = rec_org.value
+                    rec_tpl = db_sett.query(AppSettingRecord).filter(AppSettingRecord.key == "naming_template").first()
+                    if rec_tpl and rec_tpl.value:
+                        naming_template = rec_tpl.value
+                finally:
+                    db_sett.close()
+
                 final_destination = FileManager.get_output_path(
                     track=job.track,
                     extension=final_ext,
                     custom_base_dir=job.custom_output_dir,
+                    naming_template=naming_template,
+                    folder_organization=folder_org,
+                    playlist_name=job.playlist_name,
                 )
 
                 import shutil

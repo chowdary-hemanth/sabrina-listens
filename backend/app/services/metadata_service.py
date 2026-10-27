@@ -211,7 +211,7 @@ class MetadataService:
                     )
 
                 elif parsed.resource_type == ResourceType.PLAYLIST:
-                    pl = client.get_playlist(parsed.cleaned_url)
+                    pl = client.get_playlist(parsed.cleaned_url, max_tracks=None)
                     cover = pl.images[0].url if getattr(pl, 'images', None) else None
                     tracks_list = []
                     total_dur = 0

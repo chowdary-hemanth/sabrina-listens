@@ -32,6 +32,7 @@ async def get_settings(db: Session = Depends(get_db)):
     concurrency_str = get_setting_from_db(db, "max_concurrent_downloads", str(settings.MAX_CONCURRENT_DOWNLOADS))
     default_quality = get_setting_from_db(db, "default_quality", "mp3_320")
     naming_template = get_setting_from_db(db, "naming_template", "{track} - {title}")
+    folder_org = get_setting_from_db(db, "folder_organization", "artist_album")
 
     detected_ffmpeg = settings.detected_ffmpeg
 
@@ -41,6 +42,7 @@ async def get_settings(db: Session = Depends(get_db)):
         max_concurrent_downloads=int(concurrency_str),
         default_quality=default_quality,
         naming_template=naming_template,
+        folder_organization=folder_org,
         ffmpeg_detected=detected_ffmpeg is not None,
         ffmpeg_path=detected_ffmpeg,
         spotify_configured=bool(settings.SPOTIFY_CLIENT_ID and settings.SPOTIFY_CLIENT_SECRET),
@@ -70,6 +72,9 @@ async def update_settings(update: SettingsUpdate, db: Session = Depends(get_db))
 
     if update.naming_template is not None:
         set_setting_in_db(db, "naming_template", update.naming_template)
+
+    if update.folder_organization is not None:
+        set_setting_in_db(db, "folder_organization", update.folder_organization)
 
     if update.ffmpeg_path is not None:
         settings.FFMPEG_PATH = update.ffmpeg_path

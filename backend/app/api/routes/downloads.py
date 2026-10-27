@@ -9,6 +9,7 @@ from app.schemas.types import (
     DownloadJobStatus,
     DownloadQueueSummary,
     JobStatus,
+    ResourceType,
 )
 from app.workers.queue_manager import QueueManager
 from app.core.logging import logger
@@ -30,6 +31,7 @@ async def create_download_jobs(req: DownloadJobCreate):
     tracks_by_id = {t.id: t for t in resource.tracks}
     enqueued_jobs = []
     qm = QueueManager.get_instance()
+    playlist_name = resource.title if resource.resource_type == ResourceType.PLAYLIST else None
 
     for track_id in req.track_ids:
         track = tracks_by_id.get(track_id)
@@ -40,6 +42,7 @@ async def create_download_jobs(req: DownloadJobCreate):
             track=track,
             quality_id=req.quality_id,
             custom_output_dir=req.custom_output_dir,
+            playlist_name=playlist_name,
         )
         enqueued_jobs.append(job.to_status())
 
@@ -70,6 +73,15 @@ async def get_download_queue():
         failed_jobs=failed,
         jobs=all_jobs,
     )
+
+@router.post("/downloads/retry-all", response_model=List[DownloadJobStatus])
+async def retry_all_download_jobs():
+    """
+    Retries all failed or cancelled download jobs.
+    """
+    qm = QueueManager.get_instance()
+    retried_jobs = await qm.retry_all_failed()
+    return [job.to_status() for job in retried_jobs]
 
 @router.get("/downloads/{job_id}", response_model=DownloadJobStatus)
 async def get_download_job(job_id: str):

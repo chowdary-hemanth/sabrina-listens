@@ -38,11 +38,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-3 cursor-pointer group select-none"
           title={isCloudMode ? "Return to edition selection" : "Go to Discover"}
         >
-          <div className="w-12 h-12 rounded-none overflow-hidden border-2 border-pink-600 shadow-lg shadow-pink-600/40 group-hover:scale-105 transition-transform bg-black flex items-center justify-center shrink-0">
+          <div className="w-14 h-10 sm:w-16 sm:h-11 rounded-none overflow-hidden border border-pink-500/40 shadow-sm shadow-pink-600/20 group-hover:scale-105 transition-transform bg-black flex items-center justify-center shrink-0 p-0.5">
             <img
               src="/logo.png"
               alt="SABRINA LISTENS"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = '/logo.jpg';
               }}

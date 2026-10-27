@@ -125,6 +125,7 @@ class SettingsModel(BaseModel):
     max_concurrent_downloads: int
     default_quality: str
     naming_template: str
+    folder_organization: str = "artist_album"
     ffmpeg_detected: bool
     ffmpeg_path: Optional[str] = None
     spotify_configured: bool = False
@@ -136,6 +137,7 @@ class SettingsUpdate(BaseModel):
     max_concurrent_downloads: Optional[int] = Field(None, ge=1, le=10)
     default_quality: Optional[str] = None
     naming_template: Optional[str] = None
+    folder_organization: Optional[str] = None
     ffmpeg_path: Optional[str] = None
     spotify_client_id: Optional[str] = None
     spotify_client_secret: Optional[str] = None

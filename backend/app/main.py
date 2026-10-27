@@ -15,6 +15,22 @@ async def lifespan(app: FastAPI):
     # Startup: initialize database tables
     logger.info("Initializing SQLite database...")
     init_db()
+    # Load stored settings into memory
+    from app.models.database import SessionLocal, AppSettingRecord
+    from app.workers.queue_manager import QueueManager
+    db_init = SessionLocal()
+    try:
+        concurrency_rec = db_init.query(AppSettingRecord).filter(AppSettingRecord.key == "max_concurrent_downloads").first()
+        if concurrency_rec and concurrency_rec.value:
+            try:
+                saved_concurrency = int(concurrency_rec.value)
+                settings.MAX_CONCURRENT_DOWNLOADS = saved_concurrency
+                QueueManager.get_instance().update_concurrency(saved_concurrency)
+                logger.info(f"Loaded concurrency limit from DB: {saved_concurrency}")
+            except Exception as e:
+                logger.warning(f"Could not parse saved concurrency: {e}")
+    finally:
+        db_init.close()
     logger.info(f"Using output directory: {settings.resolved_output_dir}")
     logger.info(f"FFmpeg binary detected: {settings.detected_ffmpeg or 'NOT FOUND'}")
     yield
