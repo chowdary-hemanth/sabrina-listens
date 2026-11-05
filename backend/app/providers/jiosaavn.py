@@ -1,7 +1,13 @@
 import base64
 from typing import List, Optional
 import httpx
-from Crypto.Cipher import DES
+try:
+    from Crypto.Cipher import DES
+except ImportError:
+    try:
+        from Cryptodome.Cipher import DES
+    except ImportError:
+        DES = None
 from app.core.logging import logger
 from app.schemas.types import TrackMetadata
 from app.providers.base import BaseAudioProvider, CandidateAudio
@@ -16,6 +22,9 @@ class JioSaavnProvider(BaseAudioProvider):
     @staticmethod
     def _decrypt_media_url(enc_url: str) -> Optional[str]:
         """Decrypts JioSaavn encrypted_media_url using DES-ECB and unpads PKCS5."""
+        if DES is None:
+            logger.warning("pycryptodome not installed; JioSaavn DES decryption unavailable")
+            return None
         try:
             cipher = DES.new(DES_KEY, DES.MODE_ECB)
             raw_bytes = base64.b64decode(enc_url)

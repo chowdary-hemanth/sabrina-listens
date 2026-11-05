@@ -130,15 +130,15 @@ export const App: React.FC = () => {
           </div>
 
           {/* Main Content Area */}
-          <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-5 sm:space-y-8">
             {currentTab === 'home' && (
-              <div className="space-y-8 animate-fade-in">
+              <div className="space-y-5 sm:space-y-8 animate-fade-in">
                 {/* Hero Header */}
-                <div className="text-center space-y-3 pt-2 sm:pt-6">
-                  <h1 className="text-4xl sm:text-6xl md:text-7xl font-['Honk'] tracking-wide">
+                <div className="text-center space-y-2 sm:space-y-3 pt-1 sm:pt-6">
+                  <h1 className="text-3xl sm:text-6xl md:text-7xl font-['Honk'] tracking-wide">
                     SABRINA LISTENS
                   </h1>
-                  <p className="text-sm sm:text-base font-['Jost'] text-white max-w-2xl mx-auto">
+                  <p className="text-xs sm:text-base font-['Jost'] text-white max-w-2xl mx-auto px-2">
                     Paste any music link from Spotify, YouTube, or direct audio. Select high-fidelity quality, transcode with FFmpeg, and automatically embed ID3 tags with album art.
                   </p>
                 </div>

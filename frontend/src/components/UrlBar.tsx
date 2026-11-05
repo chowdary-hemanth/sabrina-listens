@@ -18,47 +18,47 @@ export const UrlBar: React.FC<UrlBarProps> = ({ onResolve, isLoading, error }) =
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4">
+    <div className="w-full max-w-4xl mx-auto space-y-3 sm:space-y-4 px-1">
       <form onSubmit={handleSubmit} className="relative group">
-        <div className="relative flex items-center bg-black/65 border-2 border-pink-600/45 group-focus-within:border-pink-500 rounded-full shadow-2xl shadow-pink-950/40 p-2 transition-all duration-300 backdrop-blur-md">
-          <div className="pl-4 pr-2 text-pink-500">
-            <Search className="w-5 h-5 group-focus-within:text-pink-400 transition-colors" />
+        <div className="relative flex items-center bg-black/75 border-2 border-pink-600/45 group-focus-within:border-pink-500 rounded-full shadow-2xl shadow-pink-950/40 p-1 sm:p-2 transition-all duration-300 backdrop-blur-md">
+          <div className="pl-3 sm:pl-4 pr-1 sm:pr-2 text-pink-500 shrink-0">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 group-focus-within:text-pink-400 transition-colors" />
           </div>
 
           <input
             type="text"
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
-            placeholder="Paste Spotify track, album, playlist, artist URL, or YouTube / direct audio link..."
+            placeholder="Paste Spotify, YouTube, or direct audio link..."
             disabled={isLoading}
-            className="w-full bg-transparent text-sm sm:text-base text-white placeholder-white/40 focus:outline-none px-2 py-2 font-['Jost'] font-medium"
+            className="w-full min-w-0 bg-transparent text-xs sm:text-base text-white placeholder-white/40 focus:outline-none px-1.5 sm:px-2 py-1.5 sm:py-2 font-['Jost'] font-medium"
           />
 
-          <div className="flex items-center gap-2 pr-1">
+          <div className="flex items-center gap-1 sm:gap-2 pr-1 shrink-0">
             {inputUrl && (
               <button
                 type="button"
                 onClick={() => setInputUrl('')}
-                className="p-1.5 text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+                className="p-1 text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-colors"
                 title="Clear input"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-shady px-7 text-sm gap-2"
+              className="btn-shady px-3.5 sm:px-7 py-2 sm:py-2.5 text-xs sm:text-sm gap-1.5 sm:gap-2 shrink-0"
             >
               {isLoading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  <span>SEARCHING...</span>
+                  <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>SEARCHING</span>
                 </>
               ) : (
                 <>
-                  <Search className="w-4 h-4 stroke-[2.5]" />
+                  <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
                   <span>SEARCH</span>
                 </>
               )}
@@ -69,8 +69,8 @@ export const UrlBar: React.FC<UrlBarProps> = ({ onResolve, isLoading, error }) =
 
       {/* Error alert banner */}
       {error && (
-        <div className="flex items-start gap-3 p-4 rounded-2xl bg-pink-950/45 border border-pink-600/60 text-white text-sm animate-fade-in backdrop-blur-md">
-          <AlertCircle className="w-5 h-5 text-pink-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-pink-950/45 border border-pink-600/60 text-white text-xs sm:text-sm animate-fade-in backdrop-blur-md">
+          <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400 shrink-0 mt-0.5" />
           <div className="space-y-1 font-['Jost']">
             <p className="font-bold text-pink-400">Recognition Error</p>
             <p className="text-white/90">{error}</p>
