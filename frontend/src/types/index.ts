@@ -1,5 +1,19 @@
+export interface CandidateAudio {
+  provider: string;
+  source_url: string;
+  stream_url: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration_seconds: number;
+  format: string;
+  bitrate_kbps: number;
+  is_direct: boolean;
+  score?: number;
+}
+
 export type ResourceType = 'track' | 'album' | 'playlist' | 'artist' | 'youtube' | 'soundcloud' | 'bandcamp' | 'direct' | 'unknown';
-export type ProviderType = 'spotify' | 'youtube' | 'soundcloud' | 'bandcamp' | 'direct' | 'generic';
+export type ProviderType = 'spotify' | 'youtube' | 'soundcloud' | 'bandcamp' | 'direct' | 'jiosaavn' | 'generic';
 
 export type JobStatus = 
   | 'pending'

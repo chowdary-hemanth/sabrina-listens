@@ -556,7 +556,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Standalone Desktop Executable Download - Only in Cloud Mode */}
-        {settings?.cloud_mode && (
+        {Boolean(settings?.cloud_mode && typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) && (
           <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="text-sm font-bold text-white block">

@@ -7,9 +7,21 @@ import {
   HistoryItem,
   RecentUrlItem,
 } from '../types';
+import { resolveSpotifyLocal } from './localEngine/spotify';
+import { processLocalDownload, getLocalQueue, subscribeLocalQueue } from './localEngine/downloader';
+
+export { subscribeLocalQueue };
+
+// Local in-memory resource cache for on-device resolution
+const localResources = new Map<string, ResourceResponse>();
 
 export function isNativeMobile(): boolean {
-  return typeof window !== 'undefined' && Capacitor.isNativePlatform();
+  if (typeof window === 'undefined') return false;
+  return (
+    Capacitor.isNativePlatform() ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && !window.location.port)
+  );
 }
 
 export function getCustomServerUrl(): string {
@@ -69,8 +81,8 @@ async function apiRequest<T = any>(
         },
         data: options.body,
         params: options.params,
-        connectTimeout: 25000,
-        readTimeout: 60000,
+        connectTimeout: 20000,
+        readTimeout: 45000,
       });
 
       if (res.status >= 400) {
@@ -109,13 +121,41 @@ async function apiRequest<T = any>(
 }
 
 export async function resolveUrl(url: string): Promise<ResourceResponse> {
-  return apiRequest<ResourceResponse>('/resolve', {
-    method: 'POST',
-    body: { url },
-  });
+  // If running in standalone mobile mode or on Android, try local Spotify / JioSaavn resolution first
+  const isMobile = isNativeMobile();
+  if (isMobile) {
+    try {
+      const localRes = await resolveSpotifyLocal(url);
+      if (localRes) {
+        localResources.set(localRes.resource_id, localRes);
+        return localRes;
+      }
+    } catch (e) {
+      console.warn('Local resolver skipped, trying server:', e);
+    }
+  }
+
+  // Fallback to server resolution (FastAPI)
+  try {
+    const res = await apiRequest<ResourceResponse>('/resolve', {
+      method: 'POST',
+      body: { url },
+    });
+    return res;
+  } catch (err: any) {
+    // If server is unreachable (offline or down), fallback to client-side resolution
+    const localRes = await resolveSpotifyLocal(url);
+    if (localRes) {
+      localResources.set(localRes.resource_id, localRes);
+      return localRes;
+    }
+    throw err;
+  }
 }
 
 export async function getResource(resourceId: string): Promise<ResourceResponse> {
+  const cached = localResources.get(resourceId);
+  if (cached) return cached;
   return apiRequest<ResourceResponse>(`/resources/${resourceId}`);
 }
 
@@ -124,6 +164,15 @@ export async function enqueueDownloads(
   trackIds: string[],
   qualityId: string
 ): Promise<DownloadJobStatus[]> {
+  const localRes = localResources.get(resourceId);
+  if (localRes) {
+    const selectedTracks = localRes.tracks.filter((t) => trackIds.includes(t.id));
+    for (const track of selectedTracks) {
+      processLocalDownload(track, qualityId).catch(console.error);
+    }
+    return getLocalQueue();
+  }
+
   return apiRequest<DownloadJobStatus[]>('/downloads', {
     method: 'POST',
     body: {
@@ -135,11 +184,33 @@ export async function enqueueDownloads(
 }
 
 export async function getDownloadQueue(): Promise<DownloadQueueSummary> {
-  return apiRequest<DownloadQueueSummary>('/downloads');
+  const local = getLocalQueue();
+  let serverJobs: DownloadJobStatus[] = [];
+  try {
+    const serverSummary = await apiRequest<DownloadQueueSummary>('/downloads');
+    serverJobs = serverSummary.jobs || [];
+  } catch {
+    // Server offline or not used
+  }
+
+  const allJobs = [...local, ...serverJobs];
+  const active = allJobs.filter((j) =>
+    ['pending', 'resolving', 'queued', 'downloading', 'transcoding', 'tagging'].includes(j.status)
+  ).length;
+  const completed = allJobs.filter((j) => j.status === 'completed').length;
+  const failed = allJobs.filter((j) => j.status === 'failed' || j.status === 'cancelled').length;
+
+  return {
+    total_jobs: allJobs.length,
+    active_jobs: active,
+    completed_jobs: completed,
+    failed_jobs: failed,
+    jobs: allJobs,
+  };
 }
 
 export async function cancelJob(jobId: string): Promise<void> {
-  await apiRequest(`/downloads/${jobId}/cancel`, { method: 'POST' });
+  await apiRequest(`/downloads/${jobId}/cancel`, { method: 'POST' }).catch(() => {});
 }
 
 export async function retryJob(jobId: string): Promise<DownloadJobStatus> {
@@ -151,28 +222,58 @@ export async function retryAllJobs(): Promise<DownloadJobStatus[]> {
 }
 
 export async function getSettings(): Promise<SettingsModel> {
-  return apiRequest<SettingsModel>('/settings');
+  try {
+    return await apiRequest<SettingsModel>('/settings');
+  } catch {
+    // Return sensible local fallback settings when running standalone
+    return {
+      output_directory: 'Documents/SabrinaListens',
+      temp_directory: 'Cache',
+      max_concurrent_downloads: 3,
+      default_quality: 'mp3_320',
+      naming_template: '{track} - {title}',
+      ffmpeg_detected: false,
+      ffmpeg_path: null,
+      spotify_configured: false,
+      cloud_mode: false,
+    };
+  }
 }
 
 export async function updateSettings(settings: Partial<SettingsModel>): Promise<SettingsModel> {
-  return apiRequest<SettingsModel>('/settings', {
-    method: 'PUT',
-    body: settings,
-  });
+  try {
+    return await apiRequest<SettingsModel>('/settings', {
+      method: 'PUT',
+      body: settings,
+    });
+  } catch {
+    return {
+      output_directory: 'Documents/SabrinaListens',
+      temp_directory: 'Cache',
+      max_concurrent_downloads: 3,
+      default_quality: 'mp3_320',
+      naming_template: '{track} - {title}',
+      ffmpeg_detected: false,
+      ffmpeg_path: null,
+      spotify_configured: false,
+      cloud_mode: false,
+      ...settings,
+    } as SettingsModel;
+  }
 }
 
 export async function getHistory(search?: string, status?: string): Promise<HistoryItem[]> {
   const params: Record<string, string> = {};
   if (search) params.search = search;
   if (status) params.status = status;
-  return apiRequest<HistoryItem[]>('/history', { method: 'GET', params });
+  return apiRequest<HistoryItem[]>('/history', { method: 'GET', params }).catch(() => []);
 }
 
 export async function clearHistory(deleteFiles: boolean = false): Promise<void> {
   await apiRequest(`/history`, {
     method: 'DELETE',
     params: { delete_files: String(deleteFiles) },
-  });
+  }).catch(() => {});
 }
 
 export async function getRecentUrls(): Promise<RecentUrlItem[]> {
