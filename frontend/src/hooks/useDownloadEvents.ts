@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { DownloadJobStatus, DownloadQueueSummary } from '../types';
-import { getDownloadQueue } from '../services/api';
+import { getDownloadQueue, getApiBase } from '../services/api';
 
 export function useDownloadEvents() {
   const [queueSummary, setQueueSummary] = useState<DownloadQueueSummary>({
@@ -24,7 +24,7 @@ export function useDownloadEvents() {
     refreshQueue();
 
     // Setup Server-Sent Events stream
-    const eventSource = new EventSource('/api/downloads/events');
+    const eventSource = new EventSource(`${getApiBase()}/downloads/events`);
 
     eventSource.onmessage = (event) => {
       try {

@@ -37,3 +37,6 @@ Thumbs.db
 
 graphify-out/
 .gemini/
+
+*.apk
+

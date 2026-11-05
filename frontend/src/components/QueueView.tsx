@@ -12,7 +12,7 @@ import {
   Download,
 } from 'lucide-react';
 import { DownloadJobStatus, JobStatus } from '../types';
-import { cancelJob, retryJob, retryAllJobs, openContainingFolder } from '../services/api';
+import { cancelJob, retryJob, retryAllJobs, openContainingFolder, getApiBase } from '../services/api';
 
 interface QueueViewProps {
   jobs: DownloadJobStatus[];
@@ -334,7 +334,7 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onRefresh, isCloudMo
                         {/* Cloud Mode: Save button only (manual browser download) */}
                         {isCloudMode && (
                           <a
-                            href={`/api/download-file/${job.job_id}`}
+                            href={`${getApiBase()}/download-file/${job.job_id}`}
                             download
                             className="btn-shady-sm px-3 gap-1.5"
                             title="Save audio file to your device"

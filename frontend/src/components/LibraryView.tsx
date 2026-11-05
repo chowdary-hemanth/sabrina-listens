@@ -10,7 +10,7 @@ import {
   Download,
 } from 'lucide-react';
 import { HistoryItem } from '../types';
-import { getHistory, clearHistory, openContainingFolder } from '../services/api';
+import { getHistory, clearHistory, openContainingFolder, getApiBase } from '../services/api';
 
 interface LibraryViewProps {
   isCloudMode?: boolean;
@@ -237,7 +237,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({ isCloudMode = false })
                     {/* Cloud Mode: Save button (manual browser download) */}
                     {isCloudMode && (
                       <a
-                        href={`/api/download-file/${item.id}`}
+                        href={`${getApiBase()}/download-file/${item.id}`}
                         download
                         className="btn-shady-sm px-3 gap-1.5"
                         title="Save audio file to your device"

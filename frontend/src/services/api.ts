@@ -7,7 +7,23 @@ import {
   RecentUrlItem,
 } from '../types';
 
-const API_BASE = '/api';
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('sabrina_custom_api_base');
+    if (custom) return custom.replace(/\/+$/, '');
+
+    const isMobileApp =
+      !!(window as any).Capacitor?.isNativePlatform?.() ||
+      window.location.protocol === 'capacitor:' ||
+      (window.location.hostname === 'localhost' && !window.location.port);
+    if (isMobileApp) {
+      return 'https://sabrina-listens.onrender.com/api';
+    }
+  }
+  return '/api';
+}
+
+const API_BASE = getApiBase();
 
 export async function resolveUrl(url: string): Promise<ResourceResponse> {
   const res = await fetch(`${API_BASE}/resolve`, {
