@@ -33,12 +33,12 @@ export const LandingView: React.FC<LandingViewProps> = ({ onLaunchCloud }) => {
     <div className="min-h-full flex flex-col justify-center items-center py-6 sm:py-12 px-4 sm:px-6 font-['Jost'] relative z-10 animate-fade-in">
       {/* Brand Hero */}
       <div className="text-center space-y-4 max-w-3xl mx-auto">
-        {/* Square Logo Box */}
-        <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-none overflow-hidden border-2 border-pink-600 shadow-xl shadow-pink-600/30 bg-black flex items-center justify-center">
+        {/* Logo Box */}
+        <div className="w-28 h-20 sm:w-36 sm:h-24 mx-auto rounded-none overflow-hidden border border-pink-500/40 shadow-md shadow-pink-600/20 bg-black flex items-center justify-center p-1">
           <img
             src="/logo.png"
             alt="SABRINA LISTENS"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '/logo.jpg';
             }}

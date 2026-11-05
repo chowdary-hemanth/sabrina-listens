@@ -13,10 +13,14 @@ class FileManager:
         extension: str = "mp3",
         custom_base_dir: Optional[str] = None,
         naming_template: Optional[str] = None,
+        folder_organization: Optional[str] = None,
+        playlist_name: Optional[str] = None,
     ) -> Path:
         """
         Computes the target file path according to the organizational structure:
-        BaseDir / SanitizedArtist / SanitizedAlbum / {track:02d} - {title}.ext
+        - "playlist": BaseDir / SanitizedPlaylist / {title}.ext
+        - "album": BaseDir / SanitizedAlbum / {track:02d} - {title}.ext
+        - "artist_album": BaseDir / SanitizedArtist / SanitizedAlbum / {track:02d} - {title}.ext
         Guarantees that path traversal or illegal filename characters are impossible.
         """
         if custom_base_dir:
@@ -24,19 +28,31 @@ class FileManager:
         else:
             base_dir = settings.resolved_output_dir
 
-        artist_folder = sanitize_path_component(track.artist or "Unknown Artist")
-        album_folder = sanitize_path_component(track.album or "Singles")
+        org = folder_organization or "artist_album"
 
-        target_dir = base_dir / artist_folder / album_folder
+        if org == "playlist":
+            folder_name = sanitize_path_component(playlist_name or track.album or "Playlist")
+            target_dir = base_dir / folder_name
+        elif org == "album":
+            folder_name = sanitize_path_component(track.album or "Singles")
+            target_dir = base_dir / folder_name
+        else:
+            artist_folder = sanitize_path_component(track.artist or "Unknown Artist")
+            album_folder = sanitize_path_component(track.album or "Singles")
+            target_dir = base_dir / artist_folder / album_folder
+
         target_dir.mkdir(parents=True, exist_ok=True)
 
         track_num = f"{track.track_number:02d}" if track.track_number else "01"
         sanitized_title = sanitize_filename(track.title)
 
-        if naming_template:
+        if naming_template and naming_template.strip():
+            template_to_use = naming_template
+            if org == "playlist" and template_to_use == "{track} - {title}":
+                template_to_use = "{title}"
             # Simple placeholder substitution
             filename_str = (
-                naming_template
+                template_to_use
                 .replace("{track}", track_num)
                 .replace("{title}", sanitized_title)
                 .replace("{artist}", sanitize_filename(track.artist))
@@ -44,7 +60,10 @@ class FileManager:
             )
             filename_str = sanitize_filename(filename_str)
         else:
-            filename_str = f"{track_num} - {sanitized_title}"
+            if org == "playlist":
+                filename_str = sanitized_title
+            else:
+                filename_str = f"{track_num} - {sanitized_title}"
 
         ext_clean = extension.lstrip('.').lower()
         candidate = target_dir / f"{filename_str}.{ext_clean}"

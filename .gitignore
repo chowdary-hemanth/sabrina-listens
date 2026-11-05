@@ -22,6 +22,7 @@ downloads/
 dist/
 build/
 *.egg-info/
+graphify-out/
 
 # Environment
 .env
@@ -30,6 +31,7 @@ build/
 # Editors
 .vscode/
 .idea/
+.gemini/
 .DS_Store
 Thumbs.db
 

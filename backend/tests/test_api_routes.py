@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.models.database import init_db
+from app.workers.queue_manager import QueueManager
 
 # Ensure tables are initialized for testing
 init_db()
@@ -22,16 +23,25 @@ def test_settings_get_and_update():
     data = r.json()
     assert "output_directory" in data
     assert "max_concurrent_downloads" in data
+    assert "folder_organization" in data
 
     # PUT settings
     update_data = {
-        "max_concurrent_downloads": 4,
+        "max_concurrent_downloads": 8,
         "default_quality": "mp3_320",
+        "folder_organization": "playlist",
+        "naming_template": "{title}",
     }
     r2 = client.put("/api/settings", json=update_data)
     assert r2.status_code == 200
-    assert r2.json()["max_concurrent_downloads"] == 4
+    assert r2.json()["max_concurrent_downloads"] == 8
     assert r2.json()["default_quality"] == "mp3_320"
+    assert r2.json()["folder_organization"] == "playlist"
+    assert r2.json()["naming_template"] == "{title}"
+
+    # Verify QueueManager concurrency updated to 8
+    qm = QueueManager.get_instance()
+    assert qm.concurrency_semaphore.capacity == 8
 
 def test_downloads_queue_get():
     r = client.get("/api/downloads")
@@ -40,6 +50,11 @@ def test_downloads_queue_get():
     assert "total_jobs" in data
     assert "active_jobs" in data
     assert "jobs" in data
+
+def test_downloads_retry_all():
+    r = client.post("/api/downloads/retry-all")
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
 
 def test_history_get_and_clear():
     r = client.get("/api/history")

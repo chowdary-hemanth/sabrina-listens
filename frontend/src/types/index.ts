@@ -91,6 +91,7 @@ export interface SettingsModel {
   max_concurrent_downloads: number;
   default_quality: string;
   naming_template: string;
+  folder_organization?: string;
   ffmpeg_detected: boolean;
   ffmpeg_path?: string | null;
   spotify_configured: boolean;

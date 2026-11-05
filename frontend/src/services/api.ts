@@ -66,6 +66,12 @@ export async function retryJob(jobId: string): Promise<DownloadJobStatus> {
   return res.json();
 }
 
+export async function retryAllJobs(): Promise<DownloadJobStatus[]> {
+  const res = await fetch(`${API_BASE}/downloads/retry-all`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to retry all jobs');
+  return res.json();
+}
+
 export async function getSettings(): Promise<SettingsModel> {
   const res = await fetch(`${API_BASE}/settings`);
   if (!res.ok) throw new Error('Failed to fetch settings');

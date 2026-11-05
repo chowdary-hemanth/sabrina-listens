@@ -12,7 +12,7 @@ import {
   Download,
 } from 'lucide-react';
 import { DownloadJobStatus, JobStatus } from '../types';
-import { cancelJob, retryJob, openContainingFolder } from '../services/api';
+import { cancelJob, retryJob, retryAllJobs, openContainingFolder } from '../services/api';
 
 interface QueueViewProps {
   jobs: DownloadJobStatus[];
@@ -24,6 +24,19 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onRefresh, isCloudMo
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'failed'>('all');
   const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [isRetryingAll, setIsRetryingAll] = useState(false);
+
+  const handleRetryAll = async () => {
+    setIsRetryingAll(true);
+    try {
+      await retryAllJobs();
+      onRefresh?.();
+    } catch (e) {
+      console.error('Failed to retry all jobs:', e);
+    } finally {
+      setIsRetryingAll(false);
+    }
+  };
 
   const handleCancel = async (jobId: string) => {
     setCancellingIds((prev) => new Set(prev).add(jobId));
@@ -155,40 +168,54 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onRefresh, isCloudMo
             </p>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 bg-black/60 p-1.5 rounded-full border border-pink-600/30 text-xs font-['Jost']">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
-                filter === 'all' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
-              }`}
-            >
-              All ({jobs.length})
-            </button>
-            <button
-              onClick={() => setFilter('active')}
-              className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
-                filter === 'active' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
-              }`}
-            >
-              Active ({activeCount})
-            </button>
-            <button
-              onClick={() => setFilter('completed')}
-              className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
-                filter === 'completed' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
-              }`}
-            >
-              Done ({completedCount})
-            </button>
-            <button
-              onClick={() => setFilter('failed')}
-              className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
-                filter === 'failed' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
-              }`}
-            >
-              Failed ({failedCount})
-            </button>
+          {/* Filter Pills & Actions */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-1.5 bg-black/60 p-1.5 rounded-full border border-pink-600/30 text-xs font-['Jost']">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
+                  filter === 'all' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                All ({jobs.length})
+              </button>
+              <button
+                onClick={() => setFilter('active')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
+                  filter === 'active' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Active ({activeCount})
+              </button>
+              <button
+                onClick={() => setFilter('completed')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
+                  filter === 'completed' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Done ({completedCount})
+              </button>
+              <button
+                onClick={() => setFilter('failed')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all ${
+                  filter === 'failed' ? 'bg-pink-600 text-white shadow-sm' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Failed ({failedCount})
+              </button>
+            </div>
+
+            {failedCount > 0 && (
+              <button
+                onClick={handleRetryAll}
+                disabled={isRetryingAll}
+                className="btn-shady-sm px-4 py-2 gap-1.5 text-xs font-bold"
+                title="Retry all failed or cancelled downloads"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isRetryingAll ? 'animate-spin' : ''}`} />
+                <span>Retry All ({failedCount})</span>
+              </button>
+            )}
           </div>
         </div>
 

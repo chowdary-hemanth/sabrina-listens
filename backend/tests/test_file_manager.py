@@ -18,6 +18,48 @@ def test_file_manager_path_generation():
         assert "Sabrina Carpenter - Island" in str(output_path)
         assert "01 - Espresso- Special Edition.mp3" in output_path.name
 
+def test_file_manager_folder_organization_playlist():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        track = TrackMetadata(
+            id="test_p",
+            title="Espresso: Special Edition",
+            artist="Sabrina Carpenter / Island",
+            album="Short n' Sweet (Deluxe)",
+            track_number=1,
+        )
+
+        output_path = FileManager.get_output_path(
+            track,
+            extension="mp3",
+            custom_base_dir=tmpdir,
+            folder_organization="playlist",
+            playlist_name="Top Summer Hits / Chill",
+        )
+        assert "Top Summer Hits - Chill" in str(output_path)
+        # In playlist mode, filename should default to {title} without track number
+        assert output_path.name == "Espresso- Special Edition.mp3"
+
+def test_file_manager_folder_organization_album():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        track = TrackMetadata(
+            id="test_a",
+            title="Espresso: Special Edition",
+            artist="Sabrina Carpenter / Island",
+            album="Short n' Sweet (Deluxe)",
+            track_number=1,
+        )
+
+        output_path = FileManager.get_output_path(
+            track,
+            extension="mp3",
+            custom_base_dir=tmpdir,
+            folder_organization="album",
+        )
+        # In album mode, folder is only album, not artist
+        assert "Sabrina Carpenter" not in str(output_path.parent.name)
+        assert "Short n' Sweet (Deluxe)" in str(output_path)
+        assert output_path.name == "01 - Espresso- Special Edition.mp3"
+
 def test_file_manager_avoid_overwrite():
     with tempfile.TemporaryDirectory() as tmpdir:
         track = TrackMetadata(
