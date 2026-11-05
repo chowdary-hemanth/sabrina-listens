@@ -308,6 +308,10 @@ class QueueManager:
                     final_ext = downloaded_file.suffix.lstrip('.')
                     if final_ext in ("webm", "opus", "ogg"):
                         final_ext = "opus"
+                    elif final_ext in ("mp4", "m4a", "aac"):
+                        final_ext = "m4a"
+                    elif final_ext not in ("mp3", "m4a", "flac", "opus", "wav"):
+                        final_ext = "mp3"
 
                 # 4. State: TRANSCODING
                 # Transcode if target format differs from downloaded file extension or if converting to target quality
@@ -378,8 +382,21 @@ class QueueManager:
                 await self.broadcast(job)
 
     async def _download_stream(self, job: DownloadJob, resolution) -> Path:
-        """Downloads audio using yt-dlp with live progress hooks."""
-        temp_file = FileManager.create_temp_file(prefix="dl_", suffix=".raw")
+        """Downloads audio using direct HTTP streaming or yt-dlp with live progress hooks."""
+        # Determine appropriate temp suffix based on source format
+        src_ext = (resolution.source_format or "raw").lower()
+        if src_ext in ("m4a", "mp4", "aac", "audio/mp4"):
+            suffix = ".m4a"
+        elif src_ext in ("opus", "webm", "audio/opus"):
+            suffix = ".opus"
+        elif src_ext in ("mp3", "audio/mpeg"):
+            suffix = ".mp3"
+        elif src_ext in ("flac", "audio/flac"):
+            suffix = ".flac"
+        else:
+            suffix = ".raw"
+
+        temp_file = FileManager.create_temp_file(prefix="dl_", suffix=suffix)
         job.temp_file = temp_file
 
         loop = asyncio.get_event_loop()
@@ -411,10 +428,11 @@ class QueueManager:
                 'overwrites': True,
             })
 
-            # If direct audio file URL
-            if resolution.extractor == "direct":
+            # If direct audio stream (e.g. JioSaavn CDN or direct HTTP stream)
+            if resolution.extractor in ("direct", "jiosaavn") or getattr(resolution, 'is_direct_stream', False):
                 import requests
-                with requests.get(resolution.stream_url, stream=True, timeout=30) as r:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                with requests.get(resolution.stream_url, headers=headers, stream=True, timeout=30) as r:
                     r.raise_for_status()
                     total = int(r.headers.get('content-length', 0))
                     downloaded = 0

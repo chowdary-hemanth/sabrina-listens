@@ -50,6 +50,9 @@ def build():
         "--hidden-import=sqlalchemy",
         "--hidden-import=sqlite3",
         "--hidden-import=pydantic_settings",
+        "--hidden-import=httpx",
+        "--hidden-import=Crypto",
+        "--hidden-import=Crypto.Cipher.DES",
         f"--icon={icon_path}",
         str(BACKEND_DIR / "desktop_launcher.py"),
     ]
