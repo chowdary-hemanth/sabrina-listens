@@ -487,25 +487,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
 
-        {/* Standalone Desktop Executable Download */}
-        <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="space-y-1">
-            <span className="text-sm font-bold text-white block">
-              Prefer Desktop Offline Mode?
-            </span>
-            <p className="text-xs text-white/70">
-              Get full uncompressed FLAC audio, 192k/256k/320k choices, and local disk folders with zero cloud restrictions.
-            </p>
+        {/* Standalone Desktop Executable Download - Only in Cloud Mode */}
+        {settings?.cloud_mode && (
+          <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <span className="text-sm font-bold text-white block">
+                Prefer Desktop Offline Mode?
+              </span>
+              <p className="text-xs text-white/70">
+                Get full uncompressed FLAC audio, 192k/256k/320k choices, and local disk folders with zero cloud restrictions.
+              </p>
+            </div>
+            <a
+              href="/api/download-desktop-app"
+              download="SabrinaListens.exe"
+              className="btn-shady-secondary text-xs px-4 py-2 shrink-0 gap-2 border border-pink-600/40 hover:border-pink-500"
+            >
+              <Download className="w-3.5 h-3.5 text-pink-400" />
+              <span>Download .exe (60.5 MB)</span>
+            </a>
           </div>
-          <a
-            href="/api/download-desktop-app"
-            download="SabrinaListens.exe"
-            className="btn-shady-secondary text-xs px-4 py-2 shrink-0 gap-2 border border-pink-600/40 hover:border-pink-500"
-          >
-            <Download className="w-3.5 h-3.5 text-pink-400" />
-            <span>Download .exe (60.5 MB)</span>
-          </a>
-        </div>
+        )}
 
         {/* Free of Cost Banner */}
         <div className="p-4 rounded-2xl bg-pink-950/30 border border-pink-600/35 flex items-start gap-3">

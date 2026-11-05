@@ -377,7 +377,7 @@ export const QueueView: React.FC<QueueViewProps> = ({ jobs, onRefresh, isCloudMo
                       <span className="font-bold text-pink-400">Error: </span>
                       {job.error_message}
                     </div>
-                    {job.error_message.toLowerCase().includes('bot') && (
+                    {isCloudMode && job.error_message.toLowerCase().includes('bot') && (
                       <div className="flex flex-wrap items-center gap-2 pt-1 font-['Google_Sans_Flex']">
                         <a
                           href="/api/download-desktop-app"
