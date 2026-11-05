@@ -15,7 +15,7 @@ import {
   FolderTree,
 } from 'lucide-react';
 import { SettingsModel } from '../types';
-import { updateSettings, getCookieStatus, saveCookies, clearCookies, CookieStatus } from '../services/api';
+import { updateSettings, getCookieStatus, saveCookies, clearCookies, CookieStatus, getCustomServerUrl, setCustomServerUrl } from '../services/api';
 
 interface SettingsViewProps {
   settings: SettingsModel | null;
@@ -27,6 +27,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdated,
 }) => {
   const [outputDir, setOutputDir] = useState('');
+  const [customServer, setCustomServer] = useState(() => getCustomServerUrl() || 'https://sabrina-listens.onrender.com');
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMsg, setTestMsg] = useState('');
+
+  const handleTestServer = async () => {
+    setTestStatus('testing');
+    setTestMsg('Connecting to server...');
+    try {
+      const target = customServer.trim().replace(/\/+$/, '');
+      const testUrl = target.endsWith('/api') ? `${target}/settings` : `${target}/api/settings`;
+      const res = await fetch(testUrl, { method: 'GET' });
+      if (res.ok) {
+        setCustomServerUrl(target);
+        setTestStatus('success');
+        setTestMsg('Connected successfully! Server is active.');
+      } else {
+        setTestStatus('error');
+        setTestMsg(`Server returned status ${res.status}`);
+      }
+    } catch (e: any) {
+      setTestStatus('error');
+      setTestMsg(e.message || 'Could not connect to server.');
+    }
+  };
   const [tempDir, setTempDir] = useState('');
   const [concurrency, setConcurrency] = useState(3);
   const [defaultQuality, setDefaultQuality] = useState('mp3_320');
@@ -484,6 +508,50 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>{isSavingCookies ? 'Saving Cookies...' : 'Save & Activate Cookies'}</span>
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Backend Server URL Card */}
+        <div className="p-4 rounded-2xl bg-black/50 border border-pink-600/30 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="space-y-1">
+              <span className="text-sm font-bold text-white block">
+                Backend Server URL
+              </span>
+              <p className="text-xs text-white/70">
+                The API server Sabrina Listens connects to for link resolution, downloads, and transcoding.
+              </p>
+            </div>
+            {testStatus === 'success' && (
+              <span className="text-xs text-pink-400 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+              </span>
+            )}
+            {testStatus === 'error' && (
+              <span className="text-xs text-red-400 font-bold flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Connection Failed
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input
+              type="text"
+              value={customServer}
+              onChange={(e) => setCustomServer(e.target.value)}
+              placeholder="https://sabrina-listens.onrender.com"
+              className="flex-1 bg-black border border-pink-600/40 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-mono text-white focus:outline-none focus:border-pink-500"
+            />
+            <button
+              type="button"
+              onClick={handleTestServer}
+              disabled={testStatus === 'testing'}
+              className="btn-shady-secondary-sm px-4 py-2 text-xs font-bold shrink-0"
+            >
+              {testStatus === 'testing' ? 'Testing...' : 'Save & Test Server'}
+            </button>
+          </div>
+          {testMsg && (
+            <p className="text-[11px] text-white/60">{testMsg}</p>
           )}
         </div>
 

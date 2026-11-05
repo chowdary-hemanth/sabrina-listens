@@ -1,3 +1,4 @@
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import {
   ResourceResponse,
   DownloadJobStatus,
@@ -7,41 +8,115 @@ import {
   RecentUrlItem,
 } from '../types';
 
+export function isNativeMobile(): boolean {
+  return typeof window !== 'undefined' && Capacitor.isNativePlatform();
+}
+
+export function getCustomServerUrl(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('sabrina_custom_api_base') || '';
+  }
+  return '';
+}
+
+export function setCustomServerUrl(url: string) {
+  if (typeof window !== 'undefined') {
+    if (url.trim()) {
+      localStorage.setItem('sabrina_custom_api_base', url.trim());
+    } else {
+      localStorage.removeItem('sabrina_custom_api_base');
+    }
+  }
+}
+
 export function getApiBase(): string {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('sabrina_custom_api_base');
-    if (custom) return custom.replace(/\/+$/, '');
+    if (custom) return custom.replace(/\/+$/, '') + (custom.endsWith('/api') ? '' : '/api');
 
-    const isMobileApp =
-      !!(window as any).Capacitor?.isNativePlatform?.() ||
+    if (
+      Capacitor.isNativePlatform() ||
       window.location.protocol === 'capacitor:' ||
-      (window.location.hostname === 'localhost' && !window.location.port);
-    if (isMobileApp) {
+      (window.location.hostname === 'localhost' && !window.location.port)
+    ) {
       return 'https://sabrina-listens.onrender.com/api';
     }
   }
   return '/api';
 }
 
-const API_BASE = getApiBase();
+async function apiRequest<T = any>(
+  path: string,
+  options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    body?: any;
+    params?: Record<string, string>;
+  } = {}
+): Promise<T> {
+  const base = getApiBase();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const fullUrlStr = base.startsWith('http') ? `${base}${cleanPath}` : `${base}${cleanPath}`;
 
-export async function resolveUrl(url: string): Promise<ResourceResponse> {
-  const res = await fetch(`${API_BASE}/resolve`, {
-    method: 'POST',
+  // When running on Android via Capacitor, use native HTTP to bypass any browser CORS restrictions
+  if (isNativeMobile()) {
+    try {
+      const res = await CapacitorHttp.request({
+        url: fullUrlStr,
+        method: options.method || 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        data: options.body,
+        params: options.params,
+        connectTimeout: 25000,
+        readTimeout: 60000,
+      });
+
+      if (res.status >= 400) {
+        const detail = res.data?.detail || res.data?.message || `Server returned error (${res.status})`;
+        throw new Error(detail);
+      }
+      return res.data as T;
+    } catch (nativeErr: any) {
+      console.warn('Native CapacitorHttp failed, attempting standard fetch:', nativeErr);
+      if (nativeErr.message && !nativeErr.message.includes('fetch')) {
+        throw nativeErr;
+      }
+    }
+  }
+
+  // Standard web browser fetch
+  const urlObj = base.startsWith('http')
+    ? new URL(`${base}${cleanPath}`)
+    : new URL(`${base}${cleanPath}`, window.location.origin);
+
+  if (options.params) {
+    Object.entries(options.params).forEach(([k, v]) => urlObj.searchParams.append(k, v));
+  }
+
+  const res = await fetch(urlObj.toString(), {
+    method: options.method || 'GET',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Failed to resolve URL' }));
-    throw new Error(err.detail || 'Failed to resolve music link');
+    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status} Error` }));
+    throw new Error(err.detail || `Request failed with status ${res.status}`);
   }
   return res.json();
 }
 
+export async function resolveUrl(url: string): Promise<ResourceResponse> {
+  return apiRequest<ResourceResponse>('/resolve', {
+    method: 'POST',
+    body: { url },
+  });
+}
+
 export async function getResource(resourceId: string): Promise<ResourceResponse> {
-  const res = await fetch(`${API_BASE}/resources/${resourceId}`);
-  if (!res.ok) throw new Error('Resource not found');
-  return res.json();
+  return apiRequest<ResourceResponse>(`/resources/${resourceId}`);
 }
 
 export async function enqueueDownloads(
@@ -49,84 +124,63 @@ export async function enqueueDownloads(
   trackIds: string[],
   qualityId: string
 ): Promise<DownloadJobStatus[]> {
-  const res = await fetch(`${API_BASE}/downloads`, {
+  return apiRequest<DownloadJobStatus[]>('/downloads', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    body: {
       resource_id: resourceId,
       track_ids: trackIds,
       quality_id: qualityId,
-    }),
+    },
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Download enqueue failed' }));
-    throw new Error(err.detail || 'Download enqueue failed');
-  }
-  return res.json();
 }
 
 export async function getDownloadQueue(): Promise<DownloadQueueSummary> {
-  const res = await fetch(`${API_BASE}/downloads`);
-  if (!res.ok) throw new Error('Failed to fetch queue');
-  return res.json();
+  return apiRequest<DownloadQueueSummary>('/downloads');
 }
 
 export async function cancelJob(jobId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/downloads/${jobId}/cancel`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to cancel job');
+  await apiRequest(`/downloads/${jobId}/cancel`, { method: 'POST' });
 }
 
 export async function retryJob(jobId: string): Promise<DownloadJobStatus> {
-  const res = await fetch(`${API_BASE}/downloads/${jobId}/retry`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to retry job');
-  return res.json();
+  return apiRequest<DownloadJobStatus>(`/downloads/${jobId}/retry`, { method: 'POST' });
 }
 
 export async function retryAllJobs(): Promise<DownloadJobStatus[]> {
-  const res = await fetch(`${API_BASE}/downloads/retry-all`, { method: 'POST' });
-  if (!res.ok) throw new Error('Failed to retry all jobs');
-  return res.json();
+  return apiRequest<DownloadJobStatus[]>('/downloads/retry-all', { method: 'POST' });
 }
 
 export async function getSettings(): Promise<SettingsModel> {
-  const res = await fetch(`${API_BASE}/settings`);
-  if (!res.ok) throw new Error('Failed to fetch settings');
-  return res.json();
+  return apiRequest<SettingsModel>('/settings');
 }
 
 export async function updateSettings(settings: Partial<SettingsModel>): Promise<SettingsModel> {
-  const res = await fetch(`${API_BASE}/settings`, {
+  return apiRequest<SettingsModel>('/settings', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
+    body: settings,
   });
-  if (!res.ok) throw new Error('Failed to update settings');
-  return res.json();
 }
 
 export async function getHistory(search?: string, status?: string): Promise<HistoryItem[]> {
-  const params = new URLSearchParams();
-  if (search) params.append('search', search);
-  if (status) params.append('status', status);
-
-  const res = await fetch(`${API_BASE}/history?${params.toString()}`);
-  if (!res.ok) throw new Error('Failed to fetch history');
-  return res.json();
+  const params: Record<string, string> = {};
+  if (search) params.search = search;
+  if (status) params.status = status;
+  return apiRequest<HistoryItem[]>('/history', { method: 'GET', params });
 }
 
 export async function clearHistory(deleteFiles: boolean = false): Promise<void> {
-  const res = await fetch(`${API_BASE}/history?delete_files=${deleteFiles}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to clear history');
+  await apiRequest(`/history`, {
+    method: 'DELETE',
+    params: { delete_files: String(deleteFiles) },
+  });
 }
 
 export async function getRecentUrls(): Promise<RecentUrlItem[]> {
-  const res = await fetch(`${API_BASE}/recents`);
-  if (!res.ok) return [];
-  return res.json();
+  return apiRequest<RecentUrlItem[]>('/recents').catch(() => []);
 }
 
 export async function openContainingFolder(jobId: string): Promise<void> {
-  await fetch(`${API_BASE}/open-folder/${jobId}`, { method: 'POST' });
+  await apiRequest(`/open-folder/${jobId}`, { method: 'POST' }).catch(() => {});
 }
 
 export interface CookieStatus {
@@ -136,23 +190,20 @@ export interface CookieStatus {
 }
 
 export async function getCookieStatus(): Promise<CookieStatus> {
-  const res = await fetch(`${API_BASE}/settings/cookies/status`);
-  if (!res.ok) return { has_cookies: false, cookie_count: 0, path: null };
-  return res.json();
+  return apiRequest<CookieStatus>('/settings/cookies/status').catch(() => ({
+    has_cookies: false,
+    cookie_count: 0,
+    path: null,
+  }));
 }
 
 export async function saveCookies(cookiesText: string): Promise<CookieStatus> {
-  const res = await fetch(`${API_BASE}/settings/cookies`, {
+  return apiRequest<CookieStatus>('/settings/cookies', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cookies_text: cookiesText }),
+    body: { cookies_text: cookiesText },
   });
-  if (!res.ok) throw new Error('Failed to save cookies');
-  return res.json();
 }
 
 export async function clearCookies(): Promise<CookieStatus> {
-  const res = await fetch(`${API_BASE}/settings/cookies`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to clear cookies');
-  return res.json();
+  return apiRequest<CookieStatus>('/settings/cookies', { method: 'DELETE' });
 }

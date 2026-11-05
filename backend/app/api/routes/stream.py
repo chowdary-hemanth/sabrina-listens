@@ -158,3 +158,33 @@ async def download_desktop_app():
         status_code=307,
     )
 
+@router.get("/download-android-app")
+async def download_android_app():
+    """
+    Downloads the pre-compiled Android App (SabrinaListens.apk).
+    Serves the APK directly if bundled on disk, or redirects to GitHub releases.
+    """
+    base_backend = Path(__file__).resolve().parents[3]
+    base_project = Path(__file__).resolve().parents[4] if len(Path(__file__).resolve().parents) > 4 else base_backend
+
+    candidates = [
+        base_backend / "desktop_dist" / "SabrinaListens.apk",
+        base_project / "SabrinaListens.apk",
+        base_project / "frontend" / "android" / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk",
+        Path("SabrinaListens.apk"),
+        Path("backend/desktop_dist/SabrinaListens.apk"),
+        Path("/app/SabrinaListens.apk"),
+    ]
+    for p in candidates:
+        if p.is_file():
+            return FileResponse(
+                path=str(p),
+                filename="SabrinaListens.apk",
+                media_type="application/vnd.android.package-archive",
+                content_disposition_type="attachment",
+            )
+
+    return RedirectResponse(
+        url="https://github.com/chowdary-hemanth/sabrina-listens/releases/latest/download/SabrinaListens.apk",
+        status_code=307,
+    )
